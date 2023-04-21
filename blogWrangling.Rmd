@@ -1,0 +1,166 @@
+---
+title: "BlogDataWrangling"
+output: html_document
+date: "2023-04-18"
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(mdsr)
+library(tidyverse)
+library(lubridate)
+library(scales)
+library(knitr)
+library(dplyr)
+library(stringr)
+library(ggplot2)
+library(data.table)
+library(timetk)
+library(plyr)
+library(zoo)
+library(clock)
+```
+
+## R Markdown
+
+This is an R Markdown document. Markdown is a simple formatting syntax for authoring HTML, PDF, and MS Word documents. For more details on using R Markdown see <http://rmarkdown.rstudio.com>.
+
+When you click the **Knit** button a document will be generated that includes both content as well as the output of any embedded R code chunks within the document. You can embed an R code chunk like this:
+
+```{r initial wrangling}
+file <- "/Users/juliustyson/Documents/GitHub/blog2-big-data/runreport.xlsx"
+data <- readxl::read_xlsx(file) %>%
+  dplyr::rename(complaint = "Chief Complaint") %>%
+  mutate(complaint = tolower(complaint)) %>%
+  mutate(abbr = substr(complaint,0,4)) %>%
+  arrange(abbr) %>%
+  mutate(complaint =
+    ifelse(abbr == "acut", "acute abdominal pain",
+    ifelse(abbr == "alle", "allergic reaction",
+    ifelse(abbr == "anap", "anaphylaxsis",
+    ifelse(abbr == "anxi", "anxiety",
+    ifelse(abbr == "chem", "chemical burn",
+    ifelse(abbr == "ches", "chest discomfort",
+    ifelse(abbr == "dizz", "dizziness",
+    ifelse(abbr == "ear ", "ear pain",
+    ifelse(abbr == "etoh", "etoh/drug related",
+    ifelse(abbr == "eye ", "eye irritation",
+    ifelse(abbr == "fall", "fall",
+    ifelse(abbr == "gast", "gastrointestinal (nausea, vomitting, and/or diarrhea)",
+    ifelse(abbr == "gene", "general weakness, dizziness",
+    ifelse(abbr == "head", "head injury",
+    ifelse(abbr == "heat", "heat exhaustion",
+    ifelse(abbr == "hive", "hives",
+    ifelse(abbr == "hot ", "heat exhaustion",
+    ifelse(abbr == "irri", "eye irritation",
+    ifelse(abbr == "lace", "laceration",
+    ifelse(abbr == "ment", "mental health emergency",
+    ifelse(abbr == "mild", "allergic reaction",
+    ifelse(abbr == "mino", "allergic reaction",
+    ifelse(abbr == "musc", "musculoskeletal injury",
+    ifelse(abbr == "naus", "nausea",
+    ifelse(abbr == "neck", "neck injury",
+    ifelse(abbr == "pain", "eye irritation",
+    ifelse(abbr == "pani", "panic attack",
+    ifelse(abbr == "psyc", "mental health emergency",
+    ifelse(abbr == "rash", "rash",
+    ifelse(abbr == "skin", "skin irritation",
+    ifelse(abbr == "soft", "soft tissue injury",
+    ifelse(abbr == "sync", "syncope",
+    ifelse(abbr == "tick", "tick bite",
+    complaint)))))))))))))))))))))))))))))))))) %>%
+  mutate(Location = tolower(Location)) %>%
+  mutate(loc_abbr = substr(Location,0,4)) %>%
+  mutate(Location =
+    ifelse(loc_abbr == "vale", "valentine quad (chapin/fayerweather/moore/valentine)",
+    ifelse(loc_abbr == "powe", "powerhouse/police station",
+    ifelse(loc_abbr == "noah", "noah webster circle (arms/converse/grosvenor/morris pratt/morrow)",
+    ifelse(loc_abbr == "nepo", "newport/seligman",
+    ifelse(loc_abbr == "keef", "keefe/beneski/mead",
+    ifelse(loc_abbr == "gym/", "gym/athletic fields",
+    ifelse(loc_abbr == "fres", "first-year quad",
+    ifelse(loc_abbr == "hump", "chapman/humphries/lincoln/rice",
+    ifelse(loc_abbr == "morr", "noah webster circle (arms/converse/grosvenor/morris pratt/morrow)",
+    Location)))))))))) %>%
+  dplyr::rename(time = "Time of Call", date = "Date of Call", location = Location, result = Result) %>%
+  mutate(ifETOH = ifelse(complaint == "etoh/drug related", 1, 0)) %>%
+  mutate(time = substr(time,11,19)) %>%
+  mutate(date_time = paste(date, time, sep = " ")) %>%
+  mutate(date_time = as.POSIXct(date_time)) %>%
+  filter(date > as.POSIXct("2000-07-01 01:00:00")) %>%
+  mutate(month = format(date, "%Y-%m")) %>%
+  #mutate(month = ym(month, format = "%Y-%m")) %>%
+  mutate(year = format(date, "%Y"))
+
+data
+
+
+data_case_longer <- data %>%
+  pivot_longer(complaint, names_to = "name", values_to = "value")
+
+
+data_loc_longer <- data %>%
+  pivot_longer(location, names_to = "name", values_to = "value")
+
+data_case_summary <- data_case_longer %>%
+  group_by(value) %>%
+  summarize(calls = count(value)) %>%
+  mutate(abbr = substr(calls$x,0,4)) %>%
+  arrange(desc(calls$freq))
+  #ungroup() %>%
+  #filter(calls$freq > 1)
+
+data_loc_summary <- data_loc_longer %>%
+  group_by(value) %>%
+  summarize(loc = count(value)) %>%
+  mutate(abbr = substr(loc$x,0,4))
+
+
+data_month_summary <- data %>%
+  group_by(month) 
+  
+
+data_scatter <- data %>%
+  group_by(month) %>%
+  dplyr::summarize(
+    total_cases = n(),
+    ETOH_cases = sum(ifETOH)
+  ) %>%
+  ungroup() %>%
+  mutate(month = paste(month, "-01", sep = ""))%>%
+  mutate(
+    month = as.POSIXct(month),
+    month_label = date_month_factor(month, labels = "en", abbreviate = TRUE)) %>%
+  filter(total_cases > 10)
+    #month(month))
+         
+data_scatter
+
+data_bar <- data_scatter %>%
+  pivot_longer(c(total_cases, ETOH_cases), names_to = "cases", values_to = "value")
+
+data_bar
+
+ggplot(data_scatter, aes(x = month, y = total_cases)) + geom_point() + 
+  
+  scale_y_continuous()
+
+ggplot(data_bar, aes(x = month, y = value, fill = cases)) + geom_col(stat="identity") + 
+  
+  scale_y_continuous()
+
+
+
+
+
+```
+
+## Including Plots
+
+You can also embed plots, for example:
+
+```{r pressure, echo=FALSE}
+plot(pressure)
+```
+
+Note that the `echo = FALSE` parameter was added to the code chunk to prevent printing of the R code that generated the plot.
