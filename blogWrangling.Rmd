@@ -168,12 +168,40 @@ visual3data <- data %>%
 
 # Data wrangling
 ```{r initial wrangling}
-visual4data <- data %>% 
+visual4temp <- data %>% 
   mutate(
     day_of_week = weekdays(as.Date(date_of_call)),
+    temp_date = as.POSIXct(paste0("2000-02-02", time_of_call)),
     time_of_day = case_when(
-      time_of_call >= "00:00:00" & time_of_call < "12:00:00" ~ "Late night"
+      temp_date >= as.POSIXct("2000-02-02 00:00:00") & temp_date < as.POSIXct("2000-02-02 04:00:00") ~ "Late night",
+      temp_date >= as.POSIXct("2000-02-02 04:00:00") & temp_date < as.POSIXct("2000-02-02 08:00:00") ~ "Early morning",
+      temp_date >= as.POSIXct("2000-02-02 08:00:00") & temp_date < 
+as.POSIXct("2000-02-02 12:00:00") ~ "Morning",
+      temp_date >= as.POSIXct("2000-02-02 12:00:00") & temp_date <
+as.POSIXct("2000-02-02 16:00:00") ~ "Afternoon",
+      temp_date >= as.POSIXct("2000-02-02 16:00:00") & temp_date <
+as.POSIXct("2000-02-02 20:00:00") ~ "Evening",
+      temp_date >= as.POSIXct("2000-02-02 20:00:00") & temp_date <
+as.POSIXct("2000-02-02 24:00:00") ~ "Late evening"
     )
+  )
+
+visual4combine <- visual4temp %>% 
+  group_by(day_of_week, time_of_day) %>% 
+  dplyr::summarize(
+    N = n()
+  )
+
+visual4day <- visual4temp %>% 
+  group_by(time_of_day) %>% 
+  dplyr::summarize(
+    N = n()
+  )
+
+visual4week <- visual4temp %>% 
+  group_by(day_of_week) %>% 
+  dplyr::summarize(
+    N = n()
   )
 ```
 
