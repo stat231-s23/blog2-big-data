@@ -20,6 +20,7 @@ library(timetk)
 library(plyr)
 library(zoo)
 library(clock)
+library(sf)
 ```
 
 ## R Markdown ##
@@ -36,6 +37,8 @@ row <- raw_data[838,]
 ```{r initial wrangling}
 file <- "data/runreport.xlsx"
 raw_data <- readxl::read_xlsx(file)
+raw_data <- readxl::read_xlsx(file)
+raw_map_data <- st_read(map_file)
 ```
 
 ## Data wrangling of main dataset ##
@@ -110,7 +113,8 @@ data <- raw_data %>%
   mutate(date_time = as.POSIXct(date_time)) %>% 
   filter(date_time > as.POSIXct("2000-07-01 01:00:00")) %>% 
   mutate(month = format(date_of_call, "%Y-%m")) %>%
-  mutate(year = format(date_of_call, "%Y"))
+  mutate(year = format(date_of_call, "%Y")) %>%
+  right_join(map_data, by = NULL)
 ```
 
 ## Visual 1: Leaflet ##
