@@ -50,35 +50,31 @@ data <- raw_data %>%
   arrange(abbr) %>%
   mutate(complaint = case_when(
     abbr == "acut" ~ "acute abdominal pain",
-    abbr == "alle" | abbr == "hive" | abbr == "mild" | abbr == "mino" | abbr == "rash"
+    abbr == "alle" | abbr == "hive" | abbr == "mild" | abbr == "mino" | abbr == "rash" | abbr == "skin"
     ~ "allergic reaction",
     abbr == "anap" ~ "anaphylaxsis",
-    abbr == "beha" | abbr == "ment" | abbr == "pani" ~ "mental health",
+    abbr == "beha" | abbr == "ment" | abbr == "pani" | abbr == "ams/" | abbr == "anxi" | abbr == "psyc" ~ "mental health",
     abbr == "burn" ~ "burn",
     abbr == "card" ~ "cardiovascular emergency",
-    abbr == "ches" | abbr == "non" ~ "chest pain",
+    abbr == "ches" | abbr == "non" | abbr == "angi" ~ "chest pain",
     abbr == "dizz" ~ "dizziness",
-    abbr == "envi" | abbr == "chem" ~ "environmental hazard",
-    abbr == "etoh" ~ "alcohol and/or drugs",
-    abbr == "eye" ~ "eye pain", #check this again (rows 588-594)
+    abbr == "envi" | abbr == "chem" | abbr == "bee " | abbr == "bug " | abbr == "heat" | abbr == "hot " | abbr == "cold" | abbr == "hydr" | abbr == "inse" | abbr == "wasp" | abbr == "tick" ~ "environmental injuries",
+    abbr == "etoh" | abbr == "eval" ~ "alcohol and/or drugs",
+    abbr == "eye " | abbr == "faci" | abbr == "blur" | abbr == "cott" | abbr == "ear " | abbr == "fore" | abbr == "irri" | abbr == "ocul" | abbr == "pain" ~ "eye/ear injuries",
     abbr == "fall" ~ "fall",
     abbr == "flu-" ~ "flu-like symptoms",
-    abbr == "gast" | abbr == "naus" | abbr == "stom" 
+    abbr == "gast" | abbr == "naus" | abbr == "stom" | abbr == "emes" | abbr == "food"
     ~ "gastrointestinal",
-    complaint == "head injury" ~ "head injury", #check this again (rows 808-820)
-    complaint == "headache" ~ "headache", #check this again(rows 821-826)
-    abbr == "heat" | abbr == "hot" ~ "heat exhaustion",
-    abbr == "hemo" | abbr == "lace" ~ "laceration/hemorrhage",
-    abbr == "hypo" ~ "hypoglycemia",
+    abbr == "head" | abbr == "migr" ~ "headache/head injury", 
+    abbr == "hemo" | abbr == "lace" | abbr == "fing" ~ "laceration/hemorrhage",
+    abbr == "hypo" | abbr == "diab" ~ "hypoglycemia",
     abbr == "moto" ~ "motor vehicle accident",
-    abbr == "musc" ~ "musculoskeletal injury",
+    abbr == "musc" | abbr == "arm " | abbr == "icep" | abbr == "leg " ~ "musculoskeletal injury",
     abbr == "over" | abbr == "took" ~ "non-alcoholic overdose",
-    abbr == "resp" | abbr == "tons" ~ "respiratory distress",
+    abbr == "resp" | abbr == "tons" | abbr == "asth" ~ "respiratory distress",
     abbr == "seiz" ~ "seizure",
-    abbr == "soft" ~ "soft tissue injury",
-    abbr == "stro" ~ "stroke",
-    abbr == "sync" ~ "syncope",
-    abbr == "tick" ~ "tick bite",
+    abbr == "soft" | abbr == "abra" | abbr == "spli" | abbr == "hema" | abbr == "scap" ~ "soft tissue injury",
+    abbr == "stro" | abbr == "sync" ~ "stroke/syncope",
     TRUE ~ "other"
   )) %>%
   mutate(location = tolower(location)) %>%
