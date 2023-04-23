@@ -4,6 +4,7 @@ output: html_document
 date: "2023-04-18"
 ---
 
+## Importing libraries ##
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
 library(mdsr)
@@ -21,110 +22,178 @@ library(zoo)
 library(clock)
 ```
 
-## R Markdown
+## R Markdown ##
 
 This is an R Markdown document. Markdown is a simple formatting syntax for authoring HTML, PDF, and MS Word documents. For more details on using R Markdown see <http://rmarkdown.rstudio.com>.
 
 When you click the **Knit** button a document will be generated that includes both content as well as the output of any embedded R code chunks within the document. You can embed an R code chunk like this:
 
+```{r}
+row <- raw_data[838,]
+```
+
+## Uploading data file ##
 ```{r initial wrangling}
-file <- "/Users/juliustyson/Documents/GitHub/blog2-big-data/runreport.xlsx"
-data <- readxl::read_xlsx(file) %>%
-  dplyr::rename(complaint = "Chief Complaint") %>%
-  mutate(complaint = tolower(complaint)) %>%
+file <- "data/runreport.xlsx"
+raw_data <- readxl::read_xlsx(file)
+```
+
+## Data wrangling of main dataset ##
+```{r initial wrangling}
+data <- raw_data %>%
+  janitor::clean_names() %>% 
+  select(-c(x6, x7, x8, was_this_call_an_especially_stressful_or_emotionally_difficult_experience_for_any_members_of_the_responding_team)) %>% 
+  dplyr::rename(complaint = "chief_complaint") %>%
   mutate(abbr = substr(complaint,0,4)) %>%
+  mutate(abbr = tolower(abbr)) %>%
+  mutate(complaint = tolower(complaint)) %>% 
   arrange(abbr) %>%
-  mutate(complaint =
-    ifelse(abbr == "acut", "acute abdominal pain",
-    ifelse(abbr == "alle", "allergic reaction",
-    ifelse(abbr == "anap", "anaphylaxsis",
-    ifelse(abbr == "anxi", "anxiety",
-    ifelse(abbr == "chem", "chemical burn",
-    ifelse(abbr == "ches", "chest discomfort",
-    ifelse(abbr == "dizz", "dizziness",
-    ifelse(abbr == "ear ", "ear pain",
-    ifelse(abbr == "etoh", "etoh/drug related",
-    ifelse(abbr == "eye ", "eye irritation",
-    ifelse(abbr == "fall", "fall",
-    ifelse(abbr == "gast", "gastrointestinal (nausea, vomitting, and/or diarrhea)",
-    ifelse(abbr == "gene", "general weakness, dizziness",
-    ifelse(abbr == "head", "head injury",
-    ifelse(abbr == "heat", "heat exhaustion",
-    ifelse(abbr == "hive", "hives",
-    ifelse(abbr == "hot ", "heat exhaustion",
-    ifelse(abbr == "irri", "eye irritation",
-    ifelse(abbr == "lace", "laceration",
-    ifelse(abbr == "ment", "mental health emergency",
-    ifelse(abbr == "mild", "allergic reaction",
-    ifelse(abbr == "mino", "allergic reaction",
-    ifelse(abbr == "musc", "musculoskeletal injury",
-    ifelse(abbr == "naus", "nausea",
-    ifelse(abbr == "neck", "neck injury",
-    ifelse(abbr == "pain", "eye irritation",
-    ifelse(abbr == "pani", "panic attack",
-    ifelse(abbr == "psyc", "mental health emergency",
-    ifelse(abbr == "rash", "rash",
-    ifelse(abbr == "skin", "skin irritation",
-    ifelse(abbr == "soft", "soft tissue injury",
-    ifelse(abbr == "sync", "syncope",
-    ifelse(abbr == "tick", "tick bite",
-    complaint)))))))))))))))))))))))))))))))))) %>%
-  mutate(Location = tolower(Location)) %>%
-  mutate(loc_abbr = substr(Location,0,4)) %>%
-  mutate(Location =
-    ifelse(loc_abbr == "vale", "valentine quad (chapin/fayerweather/moore/valentine)",
-    ifelse(loc_abbr == "powe", "powerhouse/police station",
-    ifelse(loc_abbr == "noah", "noah webster circle (arms/converse/grosvenor/morris pratt/morrow)",
-    ifelse(loc_abbr == "nepo", "newport/seligman",
-    ifelse(loc_abbr == "keef", "keefe/beneski/mead",
-    ifelse(loc_abbr == "gym/", "gym/athletic fields",
-    ifelse(loc_abbr == "fres", "first-year quad",
-    ifelse(loc_abbr == "hump", "chapman/humphries/lincoln/rice",
-    ifelse(loc_abbr == "morr", "noah webster circle (arms/converse/grosvenor/morris pratt/morrow)",
-    Location)))))))))) %>%
-  dplyr::rename(time = "Time of Call", date = "Date of Call", location = Location, result = Result) %>%
-  mutate(ifETOH = ifelse(complaint == "etoh/drug related", 1, 0)) %>%
-  mutate(time = substr(time,11,19)) %>%
-  mutate(date_time = paste(date, time, sep = " ")) %>%
-  mutate(date_time = as.POSIXct(date_time)) %>%
-  filter(date > as.POSIXct("2000-07-01 01:00:00")) %>%
-  mutate(month = format(date, "%Y-%m")) %>%
-  #mutate(month = ym(month, format = "%Y-%m")) %>%
-  mutate(year = format(date, "%Y"))
+  mutate(complaint = case_when(
+    abbr == "acut" ~ "acute abdominal pain",
+    abbr == "alle" | abbr == "hive" | abbr == "mild" | abbr == "mino" | abbr == "rash"
+    ~ "allergic reaction",
+    abbr == "anap" ~ "anaphylaxsis",
+    abbr == "beha" | abbr == "ment" | abbr == "pani" ~ "mental health",
+    abbr == "burn" ~ "burn",
+    abbr == "card" ~ "cardiovascular emergency",
+    abbr == "ches" | abbr == "non" ~ "chest pain",
+    abbr == "dizz" ~ "dizziness",
+    abbr == "envi" | abbr == "chem" ~ "environmental hazard",
+    abbr == "etoh" ~ "alcohol and/or drugs",
+    abbr == "eye" ~ "eye pain", #check this again (rows 588-594)
+    abbr == "fall" ~ "fall",
+    abbr == "flu-" ~ "flu-like symptoms",
+    abbr == "gast" | abbr == "naus" | abbr == "stom" 
+    ~ "gastrointestinal",
+    complaint == "head injury" ~ "head injury", #check this again (rows 808-820)
+    complaint == "headache" ~ "headache", #check this again(rows 821-826)
+    abbr == "heat" | abbr == "hot" ~ "heat exhaustion",
+    abbr == "hemo" | abbr == "lace" ~ "laceration/hemorrhage",
+    abbr == "hypo" ~ "hypoglycemia",
+    abbr == "moto" ~ "motor vehicle accident",
+    abbr == "musc" ~ "musculoskeletal injury",
+    abbr == "over" | abbr == "took" ~ "non-alcoholic overdose",
+    abbr == "resp" | abbr == "tons" ~ "respiratory distress",
+    abbr == "seiz" ~ "seizure",
+    abbr == "soft" ~ "soft tissue injury",
+    abbr == "stro" ~ "stroke",
+    abbr == "sync" ~ "syncope",
+    abbr == "tick" ~ "tick bite",
+    TRUE ~ "other"
+  )) %>%
+  mutate(location = tolower(location)) %>%
+  mutate(loc_abbr = substr(location,0,4)) %>%
+  mutate(location = case_when(
+    loc_abbr == "book" ~ "booknplow farm",
+    loc_abbr == "chap" | loc_abbr == "hump" ~ "chapman/humphires/lincoln/rice",
+    loc_abbr == "char" ~ "charles drew/cohan/lipton/garman/porter",
+    loc_abbr == "conv" | loc_abbr == "noah" | loc_abbr == "morr" 
+    ~ "noah webster circle",
+    loc_abbr == "fres" | loc_abbr == "firs" ~ "first-year quad",
+    loc_abbr == "gree" ~ "greenway dorms",
+    loc_abbr == "gym/" ~ "gym/athletic fields",
+    loc_abbr == "keef" ~ "keefe/beneski/mead",
+    loc_abbr == "king" ~ "king/wieland",
+    loc_abbr == "mars" ~ "marsh/plimpton/tyler",
+    loc_abbr == "mayo" ~ "mayo-smith/seelye/hitchcock",
+    loc_abbr == "merr" ~ "merrill/mcguire/seeley mudd",
+    loc_abbr == "nepo" | loc_abbr == "newp" ~ "newport/seligman",
+    loc_abbr == "powe" ~ "powerhouse",
+    loc_abbr == "scie" ~ "science center",
+    loc_abbr == "tapl" ~ "taplin/jenkins",
+    loc_abbr == "vale" ~ "valentine quad"
+  )) %>% 
+  mutate(result = case_when(
+    result == "Refusal" | result == "result" | result == "This didn't have to be a call" ~ "ACEMS care only",
+    TRUE ~ "Higher level of care"
+  )) %>% 
+  mutate(
+    ifEtOH = ifelse(complaint == "alcohol and/or drugs", 1, 0),
+    time_of_call = substr(time_of_call,11,19),
+    date_time = paste(date_of_call, time_of_call, sep = " ")) %>% 
+  mutate(date_time = as.POSIXct(date_time)) %>% 
+  filter(date_time > as.POSIXct("2000-07-01 01:00:00")) %>% 
+  mutate(month = format(date_of_call, "%Y-%m")) %>%
+  mutate(year = format(date_of_call, "%Y"))
+```
 
-data
+## Visual 1: Leaflet ##
+
+# Data wrangling
+```{r}
+visual1data <- data %>%
+  pivot_longer(location, names_to = "name", values_to = "location") %>% 
+  group_by(location) %>%
+  dplyr::summarize(
+    N = n())
+```
+
+# Visual
+```{r}
+
+```
+
+## Visual 2: Types of emergencies vs level of care needed ##
+
+# Data wrangling
+```{r initial wrangling}
+visual2data <- data %>% 
+  group_by(complaint) %>% 
+  dplyr::summarize(
+    N = n(),
+    num_ACEMS = sum(result == "ACEMS care only"),
+    num_higher = sum(result == "Higher level of care")
+  ) %>% 
+  mutate(
+    per_ACEMS = round(((num_ACEMS) / N) * 100, digits = 2),
+    per_higher = round(((num_higher) / N) * 100, digits = 2)
+  )
+```
+
+## Visual 3: number of calls over time ##
+
+# Data wrangling
+```{r}
+visual3data <- data %>% 
+  group_by(month) %>% 
+  dplyr::summarize(
+    N = n(),
+    Nalc = sum(ifEtOH == 1)
+  )
+```
+
+# Visual
+```{r}
+
+```
 
 
-data_case_longer <- data %>%
-  pivot_longer(complaint, names_to = "name", values_to = "value")
+## Visual 4: calls at specific times of day and days of the week ##
+
+# Data wrangling
+```{r initial wrangling}
+visual4data <- data %>% 
+  mutate(
+    day_of_week = weekdays(as.Date(date_of_call)),
+    time_of_day = case_when(
+      time_of_call >= "00:00:00" & time_of_call < "12:00:00" ~ "Late night"
+    )
+  )
+```
 
 
-data_loc_longer <- data %>%
-  pivot_longer(location, names_to = "name", values_to = "value")
-
-data_case_summary <- data_case_longer %>%
-  group_by(value) %>%
-  summarize(calls = count(value)) %>%
-  mutate(abbr = substr(calls$x,0,4)) %>%
-  arrange(desc(calls$freq))
-  #ungroup() %>%
-  #filter(calls$freq > 1)
-
-data_loc_summary <- data_loc_longer %>%
-  group_by(value) %>%
-  summarize(loc = count(value)) %>%
-  mutate(abbr = substr(loc$x,0,4))
-
-
+```{r initial wrangling}
 data_month_summary <- data %>%
-  group_by(month) 
-  
+  group_by(month)
+```
 
+
+```{r initial wrangling}
 data_scatter <- data %>%
   group_by(month) %>%
   dplyr::summarize(
     total_cases = n(),
-    ETOH_cases = sum(ifETOH)
+    ETOH_cases = sum(ifEtOH)
   ) %>%
   ungroup() %>%
   mutate(month = paste(month, "-01", sep = ""))%>%
@@ -135,24 +204,24 @@ data_scatter <- data %>%
     #month(month))
          
 data_scatter
+```
 
+
+```{r initial wrangling}
 data_bar <- data_scatter %>%
   pivot_longer(c(total_cases, ETOH_cases), names_to = "cases", values_to = "value")
 
 data_bar
+```
 
+
+```{r initial wrangling}
 ggplot(data_scatter, aes(x = month, y = total_cases)) + geom_point() + 
-  
   scale_y_continuous()
 
-ggplot(data_bar, aes(x = month, y = value, fill = cases)) + geom_col(stat="identity") + 
-  
+ggplot(data_bar, aes(x = month, y = value, fill = cases)) +
+  geom_col(stat="identity") + 
   scale_y_continuous()
-
-
-
-
-
 ```
 
 ## Including Plots
