@@ -38,7 +38,8 @@ row <- raw_data[838,]
 file <- "data/runreport.xlsx"
 map_file <- "data/BlogMapData.kml"
 raw_data <- readxl::read_xlsx(file)
-raw_map_data <- st_read(map_file)
+raw_map_data <- st_read(map_file) %>% 
+  filter(Name != "booknplow farm")
 ```
 
 ## Data wrangling of main dataset ##
@@ -118,19 +119,19 @@ data <- raw_data %>%
     day_of_week = weekdays(as.Date(date_of_call)),
     temp_date = as.POSIXct(paste0("2000-02-02", time_of_call)),
     time_of_day = case_when(
-      temp_date >= as.POSIXct("2000-02-02 00:00:00") & temp_date < as.POSIXct("2000-02-02 04:00:00") ~ "Late night",
-      temp_date >= as.POSIXct("2000-02-02 04:00:00") & temp_date < as.POSIXct("2000-02-02 08:00:00") ~ "Early morning",
+      temp_date >= as.POSIXct("2000-02-02 00:00:00") & temp_date < as.POSIXct("2000-02-02 04:00:00") ~ "Midnight - 4 AM",
+      temp_date >= as.POSIXct("2000-02-02 04:00:00") & temp_date < as.POSIXct("2000-02-02 08:00:00") ~ "4 Am - 8 AM",
       temp_date >= as.POSIXct("2000-02-02 08:00:00") & temp_date < 
-as.POSIXct("2000-02-02 12:00:00") ~ "Morning",
+as.POSIXct("2000-02-02 12:00:00") ~ "8 Am - Noon",
       temp_date >= as.POSIXct("2000-02-02 12:00:00") & temp_date <
-as.POSIXct("2000-02-02 16:00:00") ~ "Afternoon",
+as.POSIXct("2000-02-02 16:00:00") ~ "Noon - 4 PM",
       temp_date >= as.POSIXct("2000-02-02 16:00:00") & temp_date <
-as.POSIXct("2000-02-02 20:00:00") ~ "Evening",
+as.POSIXct("2000-02-02 20:00:00") ~ "4 PM - 8 PM",
       temp_date >= as.POSIXct("2000-02-02 20:00:00") & temp_date <
-as.POSIXct("2000-02-02 24:00:00") ~ "Late evening"
+as.POSIXct("2000-02-02 24:00:00") ~ "8 PM - Midnight"
     )
   ) %>% 
-  right_join(map_data, by = NULL)
+  inner_join(raw_map_data, by = c("location" = "Name"))
 ```
 
 ## Visual 1: Leaflet ##
@@ -171,6 +172,10 @@ visual2data <- data %>%
 # Data wrangling
 ```{r}
 visual3data <- data %>% 
+  mutate(
+    month_only = substr(month, 6,7)
+  ) %>% 
+  filter(month_only != "01" & month_only != "06" & month_only != "07" & month_only != "08") %>% 
   group_by(month) %>% 
   dplyr::summarize(
     N = n(),
@@ -188,7 +193,6 @@ visual3data <- data %>%
 
 # Data wrangling
 ```{r initial wrangling}
-
 visual4combine <- data %>% 
   group_by(day_of_week, time_of_day) %>% 
   dplyr::summarize(
