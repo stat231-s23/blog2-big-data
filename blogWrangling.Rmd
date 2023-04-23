@@ -138,11 +138,17 @@ as.POSIXct("2000-02-02 23:59:59") ~ "8 PM - Midnight"
 
 # Data wrangling
 ```{r}
-visual1data <- data %>%
+visual1temp <- data %>%
   pivot_longer(location, names_to = "name", values_to = "location") %>% 
   group_by(location) %>%
   dplyr::summarize(
     N = n())
+
+visual1temp2 <- data %>% 
+  group_by(location) %>% 
+  dplyr::summarize(
+    coordinates = geometry
+  )
 ```
 
 # Visual
