@@ -37,6 +37,10 @@ map_file <- "data/BlogMapData.kml"
 raw_data <- readxl::read_xlsx(file)
 raw_map_data <- st_read(map_file) %>% 
   filter(Name != "booknplow farm")
+
+ggplot(data=raw_map_data) +
+  geom_sf()
+
 ```
 
 ## Data wrangling of main dataset ##
@@ -149,12 +153,19 @@ my_palette <- colorNumeric(palette = "YlGnBu",
 
 # Visual
 ```{r}
-visual1 <- leaflet(data = visual1more) %>% 
+# https://gis.stackexchange.com/questions/253898/adding-a-linestring-by-st-read-in-shiny-leaflet
+visual1more$geometry
+
+test <- st_zm(visual1more, drop = T, what = "ZM")
+
+
+visual1 <- leaflet(data = test) %>% 
   addTiles() %>% 
   addPolygons()
-    fillColor = ~my_palette(N),
-    stroke = FALSE
-  )
+
+#    fillColor = ~my_palette(N),
+#    stroke = FALSE
+#  )
 
 visual1
 ```
