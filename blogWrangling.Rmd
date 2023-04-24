@@ -142,15 +142,21 @@ visual1data <- data %>%
     N = n())
 
 visual1more <- st_as_sf(visual1data)
+
+my_palette <- colorNumeric(palette = "YlGnBu",
+                           domain = visual1more$N)
 ```
 
 # Visual
 ```{r}
-visual1 <- leaflet() %>% 
+visual1 <- leaflet(data = visual1more) %>% 
   addTiles() %>% 
-  addPolygons(data = visual1more,
-              color = "blue")
+  addPolygons()
+    fillColor = ~my_palette(N),
+    stroke = FALSE
+  )
 
+visual1
 ```
 
 ## Visual 2: Types of emergencies vs level of care needed ##
