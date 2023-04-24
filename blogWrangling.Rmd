@@ -21,6 +21,7 @@ library(plyr)
 library(zoo)
 library(clock)
 library(sf)
+library(leaflet)
 ```
 
 ## R Markdown ##
@@ -28,10 +29,6 @@ library(sf)
 This is an R Markdown document. Markdown is a simple formatting syntax for authoring HTML, PDF, and MS Word documents. For more details on using R Markdown see <http://rmarkdown.rstudio.com>.
 
 When you click the **Knit** button a document will be generated that includes both content as well as the output of any embedded R code chunks within the document. You can embed an R code chunk like this:
-
-```{r}
-row <- raw_data[838,]
-```
 
 ## Uploading data file ##
 ```{r initial wrangling}
@@ -138,21 +135,21 @@ as.POSIXct("2000-02-02 23:59:59") ~ "8 PM - Midnight"
 
 # Data wrangling
 ```{r}
-visual1temp <- data %>%
+visual1data <- data %>%
   pivot_longer(location, names_to = "name", values_to = "location") %>% 
-  group_by(location) %>%
+  group_by(location, geometry) %>%
   dplyr::summarize(
     N = n())
 
-visual1temp2 <- data %>% 
-  group_by(location) %>% 
-  dplyr::summarize(
-    coordinates = geometry
-  )
+visual1more <- st_as_sf(visual1data)
 ```
 
 # Visual
 ```{r}
+visual1 <- leaflet() %>% 
+  addTiles() %>% 
+  addPolygons(data = visual1more,
+              color = "blue")
 
 ```
 
