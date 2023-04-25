@@ -37,10 +37,6 @@ map_file <- "data/BlogMapData.kml"
 raw_data <- readxl::read_xlsx(file)
 raw_map_data <- st_read(map_file) %>% 
   filter(Name != "booknplow farm")
-
-ggplot(data=raw_map_data) +
-  geom_sf()
-
 ```
 
 ## Data wrangling of main dataset ##
@@ -86,7 +82,7 @@ data <- raw_data %>%
   mutate(loc_abbr = substr(location,0,4)) %>%
   mutate(location = case_when(
     loc_abbr == "book" ~ "booknplow farm",
-    loc_abbr == "chap" | loc_abbr == "hump" ~ "chapman/humphires/lincoln/rice",
+    loc_abbr == "chap" ~ "chapman/humphries/lincoln/rice",
     loc_abbr == "char" ~ "charles drew/cohan/lipton/garman/porter",
     loc_abbr == "conv" | loc_abbr == "noah" | loc_abbr == "morr" 
     ~ "noah webster circle",
@@ -145,7 +141,8 @@ visual1data <- data %>%
   dplyr::summarize(
     N = n())
 
-visual1more <- st_as_sf(visual1data)
+visual1more <- st_as_sf(visual1data) %>% 
+  st_zm(drop = T, what = "ZM")
 
 my_palette <- colorNumeric(palette = "YlGnBu",
                            domain = visual1more$N)
@@ -154,18 +151,14 @@ my_palette <- colorNumeric(palette = "YlGnBu",
 # Visual
 ```{r}
 # https://gis.stackexchange.com/questions/253898/adding-a-linestring-by-st-read-in-shiny-leaflet
-visual1more$geometry
+# visual1more$geometry
+# 
+# test <- st_zm(visual1more, drop = T, what = "ZM")
 
-test <- st_zm(visual1more, drop = T, what = "ZM")
 
-
-visual1 <- leaflet(data = test) %>% 
+visual1 <- leaflet(data = visual1more) %>% 
   addTiles() %>% 
   addPolygons()
-
-#    fillColor = ~my_palette(N),
-#    stroke = FALSE
-#  )
 
 visual1
 ```
@@ -185,6 +178,14 @@ visual2data <- data %>%
     per_ACEMS = round(((num_ACEMS) / N) * 100, digits = 2),
     per_higher = round(((num_higher) / N) * 100, digits = 2)
   )
+```
+
+# Visual
+```{r}
+ggplot(visual2data, aes(x = complaint, y = N, fill = factor(per_higher))) + 
+  geom_bar(stat = "identity") +
+  labs(x = "Complaint", y = "Count", fill = "per_higher") +
+  theme_classic()
 ```
 
 ## Visual 3: number of calls over time ##
