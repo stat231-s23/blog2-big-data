@@ -256,7 +256,9 @@ ggplot(visual3data, aes(x = semester, y = count, group = call_type, color = call
   ) +
   theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust = 1)) +
   scale_color_manual(values = c("lightgreen", "darkgrey"), name = "Type of emergency",
-                    labels = c("All calls", "Alcohol calls only"))
+                    labels = c("All calls", "Alcohol calls only")) +
+  scale_y_continuous(breaks = c(0, 20, 40, 60, 80, 100, 120, 140, 160), 
+                     labels = c("0", "20", "40", "60", "80", "100", "120", "140", "160"))
 ```
 
 
