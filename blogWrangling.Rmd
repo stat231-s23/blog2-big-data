@@ -151,6 +151,11 @@ as.POSIXct("2000-02-02 23:59:59") ~ "8 PM - Midnight"
   inner_join(raw_map_data, by = c("location" = "Name"))
 ```
 
+#Save to RDS
+```{r}
+saveRDS(data, file = "wrangledData")
+```
+
 ## Visual 1: Leaflet ##
 
 # Data wrangling
