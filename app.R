@@ -6,6 +6,8 @@ library(sf)
 library(leaflet.extras)
 
 # Load data
+data <- read_rds("data/wrangledData.rds")
+
 visual1data <- data %>%
   pivot_longer(location, names_to = "name", values_to = "location") %>% 
   group_by(location, geometry) %>%
