@@ -286,7 +286,8 @@ visual4day <- data %>%
 visual4week <- data %>% 
   group_by(day_of_week) %>% 
   dplyr::summarize(
-    N = n()
+    N = n(),
+    percent = round((N / 1376) * 100, digits = 2)
   )
 
 visual4day$time_of_day <- factor(visual4day$time_of_day, levels = c("8 AM - Noon", "Noon - 4 PM", "4 PM - 8 PM", "8 PM - Midnight", "Midnight - 4 AM", "4 AM - 8 AM"))
