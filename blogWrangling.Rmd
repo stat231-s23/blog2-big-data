@@ -212,17 +212,17 @@ visual2data <- data %>%
 
 # Visual
 ```{r}
-ggplot(visual2data, aes(x = complaint, y = percentage, fill = type_of_care)) + 
+ggplot(visual2data, aes(x = percentage, y = complaint, fill = type_of_care)) + 
   geom_bar(stat = "identity") +
   labs(
     title = "Type of care needed depending on type of emergency",
     x = "Type of emergency",
     y = "Percentage of emergencies"
   ) +
-  theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust = 1)) + 
+  # theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust = 1)) + 
   scale_fill_manual(values = c("blue", "red"), name = "Type of care",
                     labels = c("ACEMS care only", "Higher level of care")) +
-  scale_y_continuous(breaks = c(0, 25, 50, 75, 100), 
+  scale_x_continuous(breaks = c(0, 25, 50, 75, 100), 
                      labels = c("0%", "25%", "50%", "75%", "100%"))
 ```
 
