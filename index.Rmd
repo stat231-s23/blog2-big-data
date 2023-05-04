@@ -7,7 +7,7 @@ output:
     highlight: "kate"
 ---
 
-```{r setup, include = FALSE}
+```{r setup, include = FALSE, echo = FALSE}
 # Set code chunk defaults 
 # Consider adding `message = FALSE` option
 knitr::opts_chunk$set(echo = FALSE) 
@@ -16,16 +16,195 @@ knitr::opts_chunk$set(echo = FALSE)
 options(knitr.kable.NA = '')
 
 # Load packages
+library(mdsr)
 library(tidyverse)
+library(lubridate)
+library(scales)
+library(knitr)
+library(dplyr)
+library(stringr)
+library(ggplot2)
+library(data.table)
+library(timetk)
+library(plyr)
+library(zoo)
+library(clock)
+library(sf)
+library(leaflet)
+library(colorspace)
+library(RColorBrewer)
+library(leaflet.extras)
+library(kableExtra)
+library(gridExtra)
+library(grid)
+library(png)
+library(DT)
+
+#FILE IMPORT
+file <- "data/runreport.xlsx"
+map_file <- "data/BlogMapData.kml"
+raw_data <- readxl::read_xlsx(file)
+raw_map_data <- st_read(map_file) %>% 
+  filter(Name != "booknplow farm")
+
+#WRANGLING FOR TABLE AND BAR CHART
+init_summary_data <- raw_data %>%
+  janitor::clean_names() %>% 
+  select(-c(x6, x7, x8, was_this_call_an_especially_stressful_or_emotionally_difficult_experience_for_any_members_of_the_responding_team)) %>% 
+  dplyr::rename(complaint = "chief_complaint") %>%
+  mutate(abbr = substr(complaint,0,4)) %>%
+  mutate(abbr = tolower(abbr)) %>%
+  mutate(complaint = tolower(complaint)) %>% 
+  arrange(abbr)
+
+case_summary1 <- init_summary_data %>%
+  group_by(abbr) %>%
+  dplyr::summarize(N = n()) %>%
+  arrange(desc(N))
+
+case_summary <- init_summary_data %>%
+  dplyr::group_by(complaint) %>%
+  dplyr::summarize(N = n()) %>%
+  arrange(desc(N)) %>%
+  head(10) %>%
+  #datatable(colnames = c("Complaint", "Count"),
+  #          filter = 'top',
+  #          options = list(pageLength = 10, autoWidth = 10))# %>%
+  kbl(caption = "Initial summary of case distribution") %>%
+  kable_classic(full_width = F, html_font = "Cambria")
+
+plot1 <- ggplot(case_summary1, aes(x = reorder(abbr, -N), y = N)) + geom_bar(stat = "identity") +
+  labs(
+    title = "Comparison of complaint counts",
+    x = "Type of emergency",
+    y = "Number of cases"
+  ) +
+  theme(text = element_text(size = 7.5)) +
+  theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust = 1))
+
+#MAIN WRANGLING
+data <- raw_data %>%
+  janitor::clean_names() %>% 
+  select(-c(x6, x7, x8, was_this_call_an_especially_stressful_or_emotionally_difficult_experience_for_any_members_of_the_responding_team)) %>% 
+  dplyr::rename(complaint = "chief_complaint") %>%
+  mutate(abbr = substr(complaint,0,4)) %>%
+  mutate(abbr = tolower(abbr)) %>%
+  mutate(complaint = tolower(complaint)) %>% 
+  arrange(abbr)%>%
+  mutate(complaint = case_when(
+    abbr == "acut" ~ "acute abdominal pain",
+    abbr == "alle" | abbr == "hive" | abbr == "mild" | abbr == "mino" | abbr == "rash" | abbr == "skin"
+    ~ "allergic reaction",
+    abbr == "anap" ~ "anaphylaxsis",
+    abbr == "beha" | abbr == "ment" | abbr == "pani" | abbr == "ams/" | abbr == "anxi" | abbr == "psyc" ~ "mental health",
+    abbr == "burn" ~ "burn",
+    abbr == "card" ~ "cardiovascular emergency",
+    abbr == "ches" | abbr == "non" | abbr == "angi" ~ "chest pain",
+    abbr == "dizz" ~ "dizziness",
+    abbr == "envi" | abbr == "chem" | abbr == "bee " | abbr == "bug " | abbr == "heat" | abbr == "hot " | abbr == "cold" | abbr == "hydr" | abbr == "inse" | abbr == "wasp" | abbr == "tick" ~ "environmental injuries",
+    abbr == "etoh" | abbr == "eval" ~ "alcohol and/or drugs",
+    abbr == "eye " | abbr == "faci" | abbr == "blur" | abbr == "cott" | abbr == "ear " | abbr == "fore" | abbr == "irri" | abbr == "ocul" | abbr == "pain" ~ "eye/ear injuries",
+    abbr == "fall" ~ "fall",
+    abbr == "flu-" ~ "flu-like symptoms",
+    abbr == "gast" | abbr == "naus" | abbr == "stom" | abbr == "emes" | abbr == "food"
+    ~ "gastrointestinal",
+    abbr == "head" | abbr == "migr" ~ "headache/head injury", 
+    abbr == "hemo" | abbr == "lace" | abbr == "fing" ~ "laceration/hemorrhage",
+    abbr == "hypo" | abbr == "diab" ~ "hypoglycemia",
+    abbr == "moto" ~ "motor vehicle accident",
+    abbr == "musc" | abbr == "arm " | abbr == "icep" | abbr == "leg " ~ "musculoskeletal injury",
+    abbr == "over" | abbr == "took" ~ "non-alcoholic overdose",
+    abbr == "resp" | abbr == "tons" | abbr == "asth" ~ "respiratory distress",
+    abbr == "seiz" ~ "seizure",
+    abbr == "soft" | abbr == "abra" | abbr == "spli" | abbr == "hema" | abbr == "scap" ~ "soft tissue injury",
+    abbr == "stro" | abbr == "sync" ~ "stroke/syncope",
+    TRUE ~ "other"
+  )) %>%
+  mutate(location = tolower(location)) %>%
+  mutate(loc_abbr = substr(location,0,4)) %>%
+  mutate(location = case_when(
+    loc_abbr == "book" ~ "booknplow farm",
+    loc_abbr == "chap" ~ "chapman/humphries/lincoln/rice",
+    loc_abbr == "char" ~ "charles drew/cohan/lipton/garman/porter",
+    loc_abbr == "conv" | loc_abbr == "noah" | loc_abbr == "morr" 
+    ~ "noah webster circle",
+    loc_abbr == "fres" | loc_abbr == "firs" ~ "first-year quad",
+    loc_abbr == "gree" ~ "greenway dorms",
+    loc_abbr == "gym/" ~ "gym/athletic fields",
+    loc_abbr == "keef" ~ "keefe/beneski/mead",
+    loc_abbr == "king" ~ "king/wieland",
+    loc_abbr == "mars" ~ "marsh/plimpton/tyler",
+    loc_abbr == "mayo" ~ "mayo-smith/seelye/hitchcock",
+    loc_abbr == "merr" ~ "merrill/mcguire/seeley mudd",
+    loc_abbr == "nepo" | loc_abbr == "newp" ~ "newport/seligman",
+    loc_abbr == "powe" ~ "powerhouse",
+    loc_abbr == "scie" ~ "science center",
+    loc_abbr == "tapl" ~ "taplin/jenkins",
+    loc_abbr == "vale" ~ "valentine quad"
+  )) %>% 
+  mutate(result = case_when(
+    result == "Refusal" | result == "result" | result == "This didn't have to be a call" ~ "ACEMS care only",
+    TRUE ~ "Higher level of care"
+  )) %>% 
+  mutate(
+    ifEtOH = ifelse(complaint == "alcohol and/or drugs", 1, 0),
+    time_of_call = substr(time_of_call,11,19),
+    date_time = paste(date_of_call, time_of_call, sep = " ")) %>% 
+  mutate(date_time = as.POSIXct(date_time)) %>% 
+  filter(date_time > as.POSIXct("2000-07-01 01:00:00")) %>% 
+  mutate(month = format(date_of_call, "%Y-%m")) %>%
+  mutate(year = format(date_of_call, "%Y")) %>%
+  mutate(
+    day_of_week = weekdays(as.Date(date_of_call)),
+    temp_date = as.POSIXct(paste0("2000-02-02", time_of_call)),
+    time_of_day = case_when(
+      temp_date >= as.POSIXct("2000-02-02 00:00:00") & temp_date < as.POSIXct("2000-02-02 04:00:00") ~ "Midnight - 4 AM",
+      temp_date >= as.POSIXct("2000-02-02 04:00:00") & temp_date < as.POSIXct("2000-02-02 08:00:00") ~ "4 AM - 8 AM",
+      temp_date >= as.POSIXct("2000-02-02 08:00:00") & temp_date < 
+as.POSIXct("2000-02-02 12:00:00") ~ "8 AM - Noon",
+      temp_date >= as.POSIXct("2000-02-02 12:00:00") & temp_date <
+as.POSIXct("2000-02-02 16:00:00") ~ "Noon - 4 PM",
+      temp_date >= as.POSIXct("2000-02-02 16:00:00") & temp_date <
+as.POSIXct("2000-02-02 20:00:00") ~ "4 PM - 8 PM",
+      temp_date >= as.POSIXct("2000-02-02 20:00:00") & temp_date <
+as.POSIXct("2000-02-02 23:59:59") ~ "8 PM - Midnight"
+    )
+  ) %>% 
+  mutate(
+    semester = case_when(
+      month == "2016-09" | month == "2016-10" | month == "2016-11" | month == "2016-12" ~ "Fall 2016",
+      month == "2017-02" | month == "2017-03" | month == "2017-04" | month == "2017-05" ~ "Spring 2017",
+      month == "2017-09" | month == "2017-10" | month == "2017-11" | month == "2017-12" ~ "Fall 2017",
+      month == "2018-02" | month == "2018-03" | month == "2018-04" | month == "2018-05" ~ "Spring 2018",
+      month == "2018-09" | month == "2018-10" | month == "2018-11" | month == "2018-12" ~ "Fall 2018",
+      month == "2019-02" | month == "2019-03" | month == "2019-04" | month == "2019-05" ~ "Spring 2019",
+       month == "2019-09" | month == "2019-10" | month == "2019-11" | month == "2019-12" ~ "Fall 2019",
+      month == "2020-02" | month == "2020-03" | month == "2020-04" | month == "2020-05" ~ "Spring 2020",
+      month == "2021-02" | month == "2021-03" | month == "2021-04" | month == "2021-05" ~ "Spring 2021",
+      month == "2021-09" | month == "2021-10" | month == "2021-11" | month == "2021-12" ~ "Fall 2021",
+      month == "2022-02" | month == "2022-03" | month == "2022-04" | month == "2022-05" ~ "Spring 2022",
+      month == "2022-09" | month == "2022-10" | month == "2022-11" | month == "2022-12" ~ "Fall 2022",
+      month == "2023-02" | month == "2023-03" | month == "2023-04" ~ "Spring 2023",
+      TRUE ~ "test"
+    )
+  ) %>% 
+  inner_join(raw_map_data, by = c("location" = "Name"))
+```
+
+```{r init wrangling, message=FALSE, echo = FALSE}
 
 ```
 
-```{r, fig.cap='', out.width="20%", fig.align="right", out.extra='style="float:right; padding:10px"'}
+```{r init_summary-wrangling, message=FALSE, echo=FALSE}
+
+```
+<div style= "float:right;position: relative; top: -180px; right: -20px">
+```{r, fig.cap='', out.width="70%", fig.align="right", out.extra='style="float:right; padding:10px"', message=FALSE, echo = FALSE}
 
 knitr::include_graphics("img/ACEMS_LOGO.jpeg")
 
 ```
-
+</div>
 # Introduction
 
 This project uses data from the Amherst College Emergency Medical Service (ACEMS) to explore trends in campus medical emergencies. We wanted to pick a topic which could convey some information about Amherst, hoping that a more personal topic would lead to interesting findings. The decision to use ACEMS data began with a conversation between the two of us. With one of us a senior member of ACEMS and the other an unaffiliated Amherst student, we noticed a strong disconnect in the amount of campus knowledge and awareness of ACEMS (Julius didn't even know how many members there were!). And given Austin's connection to the team, accessing data and creating informed statistics would be much easier. We hope that this topic will both increase knowledge of ACEMS' activities and generally reflect some trends of Amherst's campus life.
@@ -34,265 +213,194 @@ To tackle these goals, we address three central questions. First, where and when
 
 Discussion of our data and findings will begin with explanation of data collection and wrangling. Then we will explore our three central goals. Lastly, we conclude and discuss implications for campus life.
 
-```{r ds-salaries-app, out.width = "100%", out.extra = 'data-external="1" frameborder="no"', fig.cap = "[Data Science Salaries Shiny App](https://bebailey.shinyapps.io/data-science-salaries)"}
-knitr::include_app("https://ddw4q3-julius-tyson.shinyapps.io/BlogJTLeaflet/",
-                   height = "500px")
-```
-
 # Methodology
 
 ## Data Collection
 
-# Content
+For our initial data collection and preparation phase, *getting* the data set was the easiest part. As mentioned previously, Austin is a senior member of ACEMS --- and as all members are responsible for updating the emergency response common data --- he was easily able to access the spreadsheet. After ensuring that the data were extensive and had potential for interesting interpretation, we set out on acquiring permission. Although the data omitted any personal information which could identify a victim, we wanted to be certain continuing was ethical. And luckily, after talking to Professor Correia and Austin's supervisor, we were good to go!
 
-You can include text, `code`, and output as usual. Remember to take full advantage of Markdown and follow our [Style Guide](https://acstat231-f22.github.io/home/style-guide.html#Text_narration).
+## Data Wrangling
 
-```{r ggplot-example, fig.align="left", out.width="100%"}
-ggplot(data = cars, aes(x = speed, y = dist)) + 
-  geom_point() + 
-  labs(x = "Speed of car (mph)",
-       y = "Distance taken to stop (ft)",
-       title = "Stopping distance increases with faster speeds",
-       subtitle = "Based on 1920s study") +
-  theme_classic()
+
+<div style= "float:right;position: relative; top: -1px; right: -20px">
+
+```{r pressure, message=FALSE, echo=FALSE}
+case_summary
 ```
-
-Examples and additional guidance are provided below.
-
-Take note of the the default code chunk options in the `setup` code chunk. For example, unlike the rest of the Rmd files we worked in this semester, the default code chunk option is `echo = FALSE`, so you will need to set `echo  = TRUE` for any code chunks you would like to display in the blog. You should be thoughtful and intentional about the code you choose to display.
-
-## Links
-
-You can include [links](https://www.datadreaming.org/post/r-markdown-theme-gallery/) using Markdown syntax as shown.
-
-You should include links to relevant sites as you write. You should additionally include a list of references as the end of your blog with full citations (and relevant links).
-
-## Visualizations
-
-Visualizations, particularly interactive ones, will be well-received. That said, do not overuse visualizations. You may be better off with one complicated but well-crafted visualization as opposed to many quick-and-dirty plots. Any plots should be well-thought-out, properly labeled, informative, and visually appealing.
-
-If you want to include dynamic visualizations or tables, you should explore your options from packages that are built from [**htmlwidgets**](https://www.htmlwidgets.org/showcase_leaflet.html). These **htmlwidgets**-based packages offer ways to build lighterweight, dynamic visualizations or tables that don't require an R server to run! A more complete list of packages is available on the linked website, but a short list includes:
-
--   [**plotly**](https://plot.ly/r/): Interactive graphics with D3
--   [**leaflet**](https://rstudio.github.io/leaflet/): Interactive maps with OpenStreetMap
--   [**dygraphs**](http://rstudio.github.io/dygraphs): Interactive time series visualization
--   [**visNetwork**](http://dataknowledge.github.io/visNetwork): Network graph visualization vis.js
--   [**sparkline**](https://github.com/htmlwidgets/sparkline): Small inline charts
--   [**threejs**](https://github.com/bwlewis/rthreejs): Interactive 3D graphics
-
-You may embed a published Shiny app in your blog if useful, but be aware that there is a limited window size for embedded objects, which tends to makes the user experience of the app worse relative to a dedicated Shiny app page. Additionally, Shiny apps will go idle after a few minutes and have to be reloaded by the user, which may also affect the user experience.
-
-Any Shiny apps embedded in your blog should be accompanied by the link to the published Shiny app (I did this using a figure caption in the code chunk below, but you don't have to incorporate the link in this way).
-
-## Tables
-
-### **DT** package
-
-The [**DT** package](https://rstudio.github.io/DT/) is great for making dynamic tables that can be displayed, searched, and filtered by the user without needing an R server or Shiny app!
-
-Note: you should load any packages you use in the `setup` code chunk as usual. The `library()` functions are shown below just for demonstration.
-
-```{r dt-example, message=FALSE, echo=TRUE}
-library(DT)
-mtcars %>% 
-  select(mpg, cyl, hp) %>% 
-  datatable(colnames = c("MPG", "Number of cylinders", "Horsepower"),
-            filter = 'top',
-            options = list(pageLength = 10, autoWidth = TRUE))
-```
-
-### **kableExtra** package
-
-You can also use [**kableExtra**](https://cran.r-project.org/web/packages/kableExtra/vignettes/awesome_table_in_html.html) for customizing HTML tables.
-
-```{r kable-example, echo=TRUE, message=FALSE}
-library(kableExtra)
-summary(cars) %>%
-  kbl(col.names = c("Speed", "Distance"),
-      row.names = FALSE) %>%
-  kable_styling(bootstrap_options = "striped",
-                full_width = FALSE) %>%
-  row_spec(0, bold = TRUE) %>%
-  column_spec(1:2, width = "1.5in") 
-```
-
-## Images
-
-Images and gifs can be displayed using code chunks:
-
-```{r, fig.cap="This is a figure caption", out.width="50%", fig.align="center"}
-knitr::include_graphics("https://media.giphy.com/media/H7ZrrA9V2pd3Tehdds/giphy.gif")
-```
-
-You may also use Markdown syntax for displaying images as shown below, but code chunks offer easier customization of the image size and alignment.
-
-![This is another figure caption](https://media.giphy.com/media/8i5IvxP9ZLgmjXN1BF/giphy.gif)
-
-Either way, the file path can be a local path within your project directory or a URL for an image hosted online. This syntax works for PNG, PDF, JPG, and even GIF formats.
-
-## Videos
-
-You can use code chunks or Markdown syntax include links to any valid YouTube or Vimeo URLs (see [here](https://bookdown.org/yihui/rmarkdown/learnr-videos.html) for details) or point to a location within your project directory.
-
-Code chunk:
-
-```{r, out.width="80%", fig.align="center"}
-knitr::include_url("https://www.youtube.com/watch?v=up8ODGFWgFg")
-```
-
-Markdown syntax:
-
-![](https://www.youtube.com/watch?v=up8ODGFWgFg){width="90%"}
-
-You may need to push your updates to GitHub to see if the videos work.
-
-## Equations
-
-You might include equations if part of the purpose of your blog is to explain a statistical method. There are two ways to include equations:
-
--   Inline: $b \sim N(0, \sigma^2_b)$
--   Display-style (displayed on its own line): $$\frac{\sigma^2_b}{\sigma^2_b + \sigma^2_e}$$
-
-For typesetting equations appropriately, check out the [AMS-LaTeX quick reference](https://github.com/manuelemacchia/math-latex/blob/master/amsmath.pdf) or take a look at the *Symbols in math mode* section of this [cheat sheet](https://users.dickinson.edu/~richesod/latex/latexcheatsheet.pdf) (or do some extra Googling---there are *many* resources).
-
-# Formatting
-
-## Tabbed subsections {.tabset}
-
-Each subsection below the "Tabbed subsections" section heading will appear in a tab. See R Markdown Cookbook [Section 7.6: Put content in tabs](https://bookdown.org/yihui/rmarkdown-cookbook/html-tabs.html) for additional customization options.
-
-### Bulleted list
-
-You can make a bulleted list like this:
-
--   item 1
--   item 2
--   item 3
-
-### Numbered list
-
-You can make a numbered list like this
-
-1.  First thing I want to say
-2.  Second thing I want to say
-3.  Third thing I want to say
-
-## Column formatting
-
-<!-- Begin columns environment -->
-
-::: {style="display: flex; font-size: large;"}
-<!-- Create a column -->
-
-<div>
-
-### Content Column 1
-
-Lorem ipsum dolor sit amet, consectetur adipiscing elit. Suspendisse vel ipsum eu sem facilisis porttitor. Integer eu tristique lectus. Vestibulum nisi risus, porta sit amet cursus nec, auctor ac tellus. Integer egestas viverra rhoncus. Fusce id sem non ante vestibulum posuere ac sed lorem. Proin id felis a mi pellentesque viverra in at nulla. Duis augue nulla, aliquet ac ligula a, sagittis varius lorem.
-
 </div>
 
-<!-- Create another column (this one is just adding horizontal space to separate content) -->
+Beginning to manage the ACEMS data, we encountered many problems. Compared to our Shiny app data set, this project promised to be a greater test of our wrangling skills. The data were formatted with variables for date/time, location, complaint, and escalation result (transferred to AFD, etc.). There were also two additional columns for additional description of a response, but those were seldom used by the ACEMS team and thus removed early. We then cleaned the date/time variable relatively easily. After removing two erroneous entries in 1890, converting the variable to type POSIXct, and creating separate columns for date, time, and day of the week --- we were satisfied. Additionally, the result variable was completed fairly easily. Then, however, the real work began.
 
-<div>
+The location and complaint columns were a mess. Names were misspelled, entries were assigned arbitrarily or with one-off markers (ie., Morris Pratt instead of the overarching Webster Circle tag) --- there was little consistency in how the data were inputted. Just for the complaint variable, we immediately noticed that 125 of the 147 total unique complaint tags had less than 10 entries. This was clearly unacceptable if we hoped to create comprehensible visualizations. Below is a representation of each unique type of emergency complaint and its counts. On the right is a table of the 10 most frequent complaints. There are some significant findings to gleam from this, like that alcohol/EtOH cases comprise the majority of ACEMS responses, but it required serious wrangling for meaningful visualization.
 
-::: {.horizontalgap style="width:60px"}
-:::
 
-</div>
 
-<!-- Create another column -->
+```{r barchart, message=FALSE, echo=FALSE, fig.show="hold", out.width="100%"}
+#bar chart
 
-<div>
+plot1
+```
+Clearly, we had too many categories. As before, much of the variation was due to misspelling. For these cases, we created another column with the first four letter abbreviations of the target variable. Then, we grouped by abbreviation to correct for misspelling. This accounted for much of the inconsistency. However, we also encountered cases where locations and complaints could be subjectively grouped. For example, we ultimately chose to combine "migraine" and "headache/head injury". Cases like these were impossible to automate or perform with generic functions. Therefore, we painstakingly wrote case_when statements for each group. Finally, we had finished our wrangling.
 
-### Content Column 2
+# Central Question 1: Location and Time of ACEMS Calls
 
-Aliquam non ante et erat luctus hendrerit eu ac justo. Fusce lacinia pulvinar neque non laoreet. Fusce vitae mauris pharetra, scelerisque purus eget, pharetra nisl. Aenean volutpat elementum tortor vitae rhoncus. Phasellus nec tellus euismod neque congue imperdiet tincidunt in mauris. Morbi eu lorem molestie, hendrerit lorem nec, semper massa. Sed vulputate hendrerit ex, eget cursus purus. Pellentesque consequat erat leo, eleifend porttitor lacus porta at. Vivamus faucibus quam ipsum, id condimentum ligula malesuada ultrices. Nullam luctus leo elit, vitae rutrum nibh venenatis eget. Nam at sodales purus. Proin nulla tellus, lacinia eget pretium sed, vehicula aliquet neque. Morbi vel eros elementum, suscipit elit eu, consequat libero. Nulla nec aliquet neque. Nunc bibendum sapien lectus, sed elementum nisi rutrum non. Ut vulputate at lacus eget maximus.
+## Introduction
 
-```{r, out.width="80%", fig.align="right"}
-mtcars %>% 
-  ggplot(aes(x = wt, y = mpg)) +
-  geom_point()
+We hoped that creating displays of data on location and time of campus emergencies could be particularly interesting for other students. Where do most ACEMS calls occur? We assumed a strong association between the amount of parties hosted in a dorm and the amount of calls received — but is this true? What about dorms which are further from campus? Does Humphries' House receive less calls than Morris Pratt? And for time: clearly there are more calls on the weekends, but are there more on Fridays or Saturdays? What times?
+
+## Spatial Analysis
+
+For our first display, we decided to map the quantity of calls by location. We wanted our display to include polygons of our areas, instead of using pins. We thought this would both give a better sense of how we grouped locations and allow for a heatmap of campus. Doing so, however, required using mapping software to create a .KML file with polygons of the buildings manually selected.
+
+With the shape file created, we used R's Leaflet package to create an interactive map of Amherst's campus.
+
+```{r, message=FALSE, echo=FALSE}
+#Leaflet wrangling
+visual1data <- data %>%
+  pivot_longer(location, names_to = "name", values_to = "location") %>% 
+  group_by(location, geometry) %>%
+  dplyr::summarize(N = n()) %>%
+  st_as_sf() %>% 
+  st_zm(drop = T, what = "ZM") %>%
+  arrange(N)
+
+# Define color palette
+colors <- colorBin("viridis", visual1data$N, 6, pretty = TRUE)
+
 ```
 
-</div>
-:::
+```{r, message=FALSE, echo=FALSE}
+leaflet(data = visual1data) %>% 
+  addTiles() %>% 
+  addPolygons(
+    fillColor = ~colors(N)[as.numeric(factor(N))],
+    stroke = FALSE,
+    fillOpacity = 0.5,
+    layerId = ~location
+    , popup = paste0("Location: ", str_to_title(visual1data$location), "<br>"
+                     , "Number of cases: ", visual1data$N)
+  ) %>%
+  # add legend explaining fill color
+  addLegend(pal = colors, 
+            values = visual1data$N,
+            position = "bottomright", 
+            title = "ACEMS Response Cases at Amherst College")
 
-<!-- End columns environment with matching length indicator-->
+```
 
-# Customizing your blog design
+From the map, it's clear that the vast majority of ACEMS calls occur on the first-year quad. With over 150 more calls than Valentine quad, the second highest location, this is an astonishing amount. We question whether this statistic is simply a function of the first-year quad having the highest density of students, first-years being more reckless/irresponsible, or some combination.
 
-As a *final* detail **only** if you have time, you can explore options for customizing the style of your blog. By default, we are using the `readthedown` theme from the [**rmdformats** package](https://github.com/juba/rmdformats) (see Line 6 of this file if you want to switch out themes).
+Otherwise, though, the trends are about as we expected. The areas near typical "party dorms" are associated with greater amounts of calls. The gym and athletic fields also have relatively high numbers of calls, which makes sense given the potential for fatigue and exhaustion.
 
-## Theme
 
-You can use the [**rmdformats** package](https://github.com/juba/rmdformats) to play around with some pre-built themes. There are, I'm sure, many many many more similar packages with built in themes, or you can look into how to include a CSS code chunk to customize aspects of a theme.
+## Temporal Analysis
 
-Using the **rmdformats** package, you can change the theme itself (Line 6):
+We focused on time for two primary reasons. First, we were interested in short-term trends for ACEMS responses. For example: what days of the week do the most emergency calls occur? And second, we were interested in longer-term trends. How have the total amounts of calls per semester changed since 2016? Can we infer anything about campus life given those trends? How might COVID restrictions have affected the quantity of restrictions (we will address this in the third section)?
 
--   `rmdformats::readthedown`
--   `rmdformats::downcute`
-    -   For `downcute` only, you can add a new indented line below Line 6 with the code `downcute_theme: "chaos"` for the `downcute chaos` theme
--   `rmdformats::robobook`
--   `rmdformats::material`
+For short-term analysis, we first plotted the total amount of calls by hour of the day.
 
-You can explore additional YAML options by looking at the [**rmdformats** package](https://github.com/juba/rmdformats) page or running, for example, `?rmdformats::readthedown()` to see the help documentation for a particular theme from the package.
+```{r initial wrangling, message=FALSE, echo=FALSE}
+visual4combine <- data %>% 
+  group_by(day_of_week, time_of_day) %>% 
+  dplyr::summarize(
+    N = n()
+  )
 
-## Synax highlighting
+visual4day <- data %>% 
+  group_by(time_of_day) %>% 
+  dplyr::summarize(
+    N = n(),
+    alcohol_calls = sum(ifEtOH == 1)
+  ) %>% 
+  pivot_longer(cols = c(N, "alcohol_calls"), names_to = "call_type", values_to = "count")
 
-You can also change the code chunk syntax highlighting option (Line 7, `highlight`):
+visual4week <- data %>% 
+  group_by(day_of_week) %>% 
+  dplyr::summarize(
+    N = n(),
+    alcohol_calls = sum(ifEtOH == 1)
+  ) %>% 
+  pivot_longer(cols = c(N, "alcohol_calls"), names_to = "call_type", values_to = "count")
 
--   `"default"`
--   `"tango"`
--   `"pygments"`
--   `"kate"`
--   `"monochrome"`
--   `"espresso"`
--   `"zenburn"`
--   `"haddock"`
--   `"textmate"`
--   `NULL` for no syntax highlighting (not recommended)
+visual4day$time_of_day <- factor(visual4day$time_of_day, levels = c("8 AM - Noon", "Noon - 4 PM", "4 PM - 8 PM", "8 PM - Midnight", "Midnight - 4 AM", "4 AM - 8 AM"))
 
-## Font size, type, and other customization
-
-Further customization requires adding a CSS style file or code chunk or incorporating other development options. Customization beyond the **rmdformats** package should be your lowest and final priority for the project. Ensure your content is fully prepared first.
-
-# References
-
-All data sources, any key R packages, and any other sources used in developing your blog should be cited in full in a list of references at the end of your blog. Your blog post should also link to these sources as they are discussed. You may choose any reference style as long as sources are fully cited (try to be consistent!).
-
-Typically, references in R Markdown (and LaTeX) files are [incorporated with a BibTeX database](https://bookdown.org/yihui/rmarkdown-cookbook/bibliography.html) (a .bib file). You can try this approach or manually include either a numbered or alphabetized list.
-
-Columbia University has compiled some guidance on [how to cite data](https://guides.library.columbia.edu/datacitation). Some data sources will give you the citation information to copy and paste. Use the provided citations or citation styles in those cases.
-
-You can list R package citations with the code `citation("packageName")` in the console and then copy (and reformat as needed) the relevant text, e.g.,
+visual4week$day_of_week <- factor(visual4week$day_of_week, levels = c("Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"))
+```
 
 ```{r}
-citation("DT")
+ggplot(data = visual4day, aes(x = time_of_day, y = count, fill = call_type)) +
+  geom_bar(stat = 'identity') +
+   scale_fill_manual(values = c("red", "blue"), name = "Type of emergency",
+                    labels = c("Alcohol calls only", "All calls")) +
+  labs(
+    title = "Number of calls throughout the day",
+    x = "Time of day", 
+    y = "Number of calls"
+  ) +
+  theme(axis.text.x = element_text(angle = 0, vjust = -1, hjust = 0.5, size = 6)) +
+  geom_text(aes(label = count), vjust = -0.1)
 ```
 
-The following citations are based on the American Statistical Association citation style (not all of these references are used in this document).:
+Unsurprisingly, ACEMS receives more calls as the night progresses, with a sharp drop in call volume by 4AM. This is consistent with the times that students would be partying and require alcohol/EtOH related medical assistance, which we have demonstrated comprises the plurality of ACEMS emergencies. We can also see that the amount of emergencies involving alcohol are far greater beteen 8PM and 4AM. Building on this, we can make our first substantive — yet somewhat obvious — recommendation for the ACEMS team. ACEMS members who are on-call late at night should be readily prepared to handle cases involving intoxication and overdose. We can make similar recommendations when considering data on calls throughout the week.
 
-<!-- Textbook -->
+```{r}
+ggplot(data = visual4week, aes(x = day_of_week, y = count, fill = call_type)) +
+  scale_fill_manual(values = c("red", "blue"), name = "Type of emergency",
+                    labels = c("Alcohol calls only", "All calls")) +
+  geom_bar(stat = 'identity') +
+  labs(
+    title = "Number of calls throughout the week",
+    x = "Day of week",
+    y = "Number of calls"
+  ) +
+  theme(axis.text.x = element_text(angle = 0, vjust = -0.5, hjust = 0.5, size = 7.5)) +
+  geom_text(aes(label = count), vjust = -0.2)
+```
+Clearly, emergency calls are significantly higher on the weekends. And, of those calls, alcohol related crises make up a greater proportion. This information may help ACEMS appropriately plan which officers to assign during weekends, prioritizing those with more experience and preparedness.
 
-Baumer, B. S., Kaplan, D. T., and Horton, N. J. (2021), *Modern Data Science with R* (2nd ed.), Boca Raton, FL: CRC Press.
+Moving on to long-term trends, we plotted the amount of calls from Fall 2016 to Spring 2023.
 
-<!-- Journal article -->
 
-Broman, K. W. and Woo, K. H. (2018), "Data Organization in Spreadsheets," *The American Statistician*, 72:1, 2-10, doi: [10.1080/00031305.2017.1375989](https://doi.org/10.1080/00031305.2017.1375989)
+To test this, we plotted the amount of ACEMS cases called to the first-year quad over time.
 
-<!-- Website -->
+```{r, message=FALSE, echo=FALSE}
+visual3data <- data %>% 
+    #filter(location == "first-year quad") %>%
+  mutate(
+    month_only = substr(month, 6,7)
+  ) %>% 
+  filter(month_only != "01" & month_only != "06" & month_only != "07" & month_only != "08") %>% 
+  filter(month != "2016-03") %>%  # We only have data on this month in Spring 2016
+  group_by(semester) %>% 
+  dplyr::summarize(
+    all_calls = n(),
+    alcohol_calls = sum(ifEtOH == 1),
+    fyq_calls = sum(location == "first-year quad")
+  ) %>% 
+  pivot_longer(cols = c("all_calls", "alcohol_calls", "fyq_calls"), names_to = "call_type", values_to = "count")
 
-Columbia University Libraries (n.d.), "Data Citation," available at <https://guides.library.columbia.edu/datacitation>.
+visual3data$semester <- factor(visual3data$semester, levels = c("Fall 2016", "Spring 2017", "Fall 2017", "Spring 2018", "Fall 2018", "Spring 2019", "Fall 2019", "Spring 2020", "Spring 2021", "Fall 2021", "Spring 2022", "Fall 2022", "Spring 2023"))
 
-<!-- Journal article -->
+visual3data <- visual3data %>% 
+  arrange(semester)
+```
 
-McNamara, A. and Horton N. J. (2018) "Wrangling Categorical Data in R," *The American Statistician*, 72:1, 97-104, doi: [10.1080/00031305.2017.1356375](https://doi.org/10.1080/00031305.2017.1356375).
+```{r, message=FALSE, echo=FALSE}
+ggplot(visual3data, aes(x = semester, y = count, group = call_type, color = call_type)) +
+  geom_point(size = 2) + 
+  geom_line() +
+  labs(
+    title = "Distribution of calls to FYQ throughout the semester",
+    x = "Semester",
+    y = "Number of calls"
+  ) +
+  theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust = 1)) +
+  scale_color_manual(values = c("blue", "black", "gray"), name = "Type of emergency",
+                    labels = c("Alcohol calls only", "All calls", "First-year quad only")) +
+  scale_y_continuous(breaks = c(0, 20, 40, 60, 80, 100, 120, 140, 160), 
+                     labels = c("0", "20", "40", "60", "80", "100", "120", "140", "160"))
+```
 
-<!-- Dataset -->
 
-Shah, Syed A. A. (October 2022), "Starbucks Drinks" (Version 1), *Kaggle*, available at <https://www.kaggle.com/datasets/syedasimalishah/starbucks-drinks>.
 
-<!-- R package -->
 
-Xie Y, Cheng J, Tan X (2022). "DT: A Wrapper of the JavaScript Library 'DataTables'," R package version 0.24, available at <https://CRAN.R-project.org/package=DT>.
