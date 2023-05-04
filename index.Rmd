@@ -358,10 +358,8 @@ ggplot(data = visual4week, aes(x = day_of_week, y = count, fill = call_type)) +
 ```
 Clearly, emergency calls are significantly higher on the weekends. And, of those calls, alcohol related crises make up a greater proportion. This information may help ACEMS appropriately plan which officers to assign during weekends, prioritizing those with more experience and preparedness.
 
-Moving on to long-term trends, we plotted the amount of calls from Fall 2016 to Spring 2023.
+Moving on to long-term trends, we plotted the amount of calls from Fall 2016 to Spring 2023. One interesting trend is that the Fall semesters appear to be associated with higher amounts of cases. This might be explained by temperature differences. Given that Fall is generally warmer than Spring, there might be a greater amount of alcohol-related emergencies.
 
-
-To test this, we plotted the amount of ACEMS cases called to the first-year quad over time.
 
 ```{r, message=FALSE, echo=FALSE}
 visual3data <- data %>% 
@@ -400,7 +398,61 @@ ggplot(visual3data, aes(x = semester, y = count, group = call_type, color = call
   scale_y_continuous(breaks = c(0, 20, 40, 60, 80, 100, 120, 140, 160), 
                      labels = c("0", "20", "40", "60", "80", "100", "120", "140", "160"))
 ```
+Now, we will analyze trends on response escalation based on type of emergency.
+
+# Central Question 3: Escalation of ACEMS Calls
+
+## Introduction
+
+## Types of Emergencies
 
 
+As discussed previously, we significantly consolidated the number of emergency complaint labels in our data set. With our final list, we hoped to 
 
+```{r, message=FALSE, echo=FALSE}
+final_case_summary <- data %>%
+ dplyr::group_by(complaint) %>%
+  dplyr::summarize(N = n()) %>%
+  arrange(desc(N)) %>%
+  head(30) %>%
+  #datatable(colnames = c("Complaint", "Count"),
+  #          filter = 'top',
+  #          options = list(pageLength = 10, autoWidth = 10))# %>%
+  kbl(caption = "Summary of case distribution") %>%
+  kable_classic(full_width = F, html_font = "Cambria")
+```
+<div style= "float:right;position: relative; top: -1px; right: -20px">
+```{r}
+final_case_summary
+```
+</div>
+```{r, message=FALSE, echo=FALSE}
+visual2data <- data %>% 
+  group_by(complaint) %>% 
+  dplyr::summarize(
+    N = n(),
+    num_ACEMS = sum(result == "ACEMS care only"),
+    num_higher = sum(result == "Higher level of care")
+  ) %>% 
+  mutate(
+    per_ACEMS = round(((num_ACEMS) / N) * 100, digits = 2),
+    per_higher = round(((num_higher) / N) * 100, digits = 2)
+  ) %>% 
+  pivot_longer(cols = c("per_ACEMS", "per_higher"), names_to = "type_of_care", values_to = "percentage")
+```
+
+```{r}
+ggplot(visual2data, aes(x = complaint, y = percentage, fill = type_of_care)) + 
+  geom_bar(stat = "identity") +
+  labs(
+    title = "Type of care needed depending on type of emergency",
+    x = "Type of emergency",
+    y = "Percentage of emergencies"
+  ) +
+  theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust = 1)) + 
+  scale_fill_manual(values = c("blue", "red"), name = "Type of care",
+                    labels = c("ACEMS care only", "Higher level of care")) +
+  scale_y_continuous(breaks = c(0, 25, 50, 75, 100), 
+                     labels = c("0%", "25%", "50%", "75%", "100%"))
+```
 
