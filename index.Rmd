@@ -154,20 +154,21 @@ data <- raw_data %>%
   filter(date_time > as.POSIXct("2000-07-01 01:00:00")) %>% 
   mutate(month = format(date_of_call, "%Y-%m")) %>%
   mutate(year = format(date_of_call, "%Y")) %>%
+  mutate(week = format(date_of_call, "%Y-%M-%W")) %>%
   mutate(
     day_of_week = weekdays(as.Date(date_of_call)),
     temp_date = as.POSIXct(paste0("2000-02-02", time_of_call)),
     time_of_day = case_when(
-      temp_date >= as.POSIXct("2000-02-02 00:00:00") & temp_date < as.POSIXct("2000-02-02 04:00:00") ~ "Midnight - 4 AM",
+      temp_date >= as.POSIXct("2000-02-02 00:00:00") & temp_date < as.POSIXct("2000-02-02 04:00:00") ~ "12 AM - 4 AM",
       temp_date >= as.POSIXct("2000-02-02 04:00:00") & temp_date < as.POSIXct("2000-02-02 08:00:00") ~ "4 AM - 8 AM",
       temp_date >= as.POSIXct("2000-02-02 08:00:00") & temp_date < 
-as.POSIXct("2000-02-02 12:00:00") ~ "8 AM - Noon",
+as.POSIXct("2000-02-02 12:00:00") ~ "8 AM - 12 PM",
       temp_date >= as.POSIXct("2000-02-02 12:00:00") & temp_date <
-as.POSIXct("2000-02-02 16:00:00") ~ "Noon - 4 PM",
+as.POSIXct("2000-02-02 16:00:00") ~ "12 PM - 4 PM",
       temp_date >= as.POSIXct("2000-02-02 16:00:00") & temp_date <
 as.POSIXct("2000-02-02 20:00:00") ~ "4 PM - 8 PM",
       temp_date >= as.POSIXct("2000-02-02 20:00:00") & temp_date <
-as.POSIXct("2000-02-02 23:59:59") ~ "8 PM - Midnight"
+as.POSIXct("2000-02-02 23:59:59") ~ "8 PM - 12 AM"
     )
   ) %>% 
   mutate(
@@ -309,7 +310,7 @@ visual4combine <- data %>%
 visual4day <- data %>% 
   group_by(time_of_day) %>% 
   dplyr::summarize(
-    N = n(),
+    N = sum(ifEtOH != 1),
     alcohol_calls = sum(ifEtOH == 1)
   ) %>% 
   pivot_longer(cols = c(N, "alcohol_calls"), names_to = "call_type", values_to = "count")
@@ -317,12 +318,12 @@ visual4day <- data %>%
 visual4week <- data %>% 
   group_by(day_of_week) %>% 
   dplyr::summarize(
-    N = n(),
+    N = sum(ifEtOH != 1),
     alcohol_calls = sum(ifEtOH == 1)
   ) %>% 
   pivot_longer(cols = c(N, "alcohol_calls"), names_to = "call_type", values_to = "count")
 
-visual4day$time_of_day <- factor(visual4day$time_of_day, levels = c("8 AM - Noon", "Noon - 4 PM", "4 PM - 8 PM", "8 PM - Midnight", "Midnight - 4 AM", "4 AM - 8 AM"))
+visual4day$time_of_day <- factor(visual4day$time_of_day, levels = c("8 AM - 12 PM", "12 PM - 4 PM", "4 PM - 8 PM", "8 PM - 12 AM", "12 AM - 4 AM", "4 AM - 8 AM"))
 
 visual4week$day_of_week <- factor(visual4week$day_of_week, levels = c("Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"))
 ```
@@ -330,31 +331,35 @@ visual4week$day_of_week <- factor(visual4week$day_of_week, levels = c("Sunday", 
 ```{r}
 ggplot(data = visual4day, aes(x = time_of_day, y = count, fill = call_type)) +
   geom_bar(stat = 'identity') +
-   scale_fill_manual(values = c("red", "blue"), name = "Type of emergency",
-                    labels = c("Alcohol calls only", "All calls")) +
+   scale_fill_manual(values = c("floralwhite", "steelblue"), name = "Type of emergency",
+                    labels = c("Alcohol-related calls only", "Other calls")) +
   labs(
     title = "Number of calls throughout the day",
     x = "Time of day", 
     y = "Number of calls"
   ) +
-  theme(axis.text.x = element_text(angle = 0, vjust = -1, hjust = 0.5, size = 6)) +
-  geom_text(aes(label = count), vjust = -0.1)
+  theme(axis.text.x = element_text(angle = 0, vjust = 0, hjust = 0.5, size = 7)) +
+  theme(panel.background = element_rect(fill = "gainsboro")) + 
+  geom_text(aes(label = count, group = call_type),
+            position = position_stack(vjust = 0.5))
 ```
 
 Unsurprisingly, ACEMS receives more calls as the night progresses, with a sharp drop in call volume by 4AM. This is consistent with the times that students would be partying and require alcohol/EtOH related medical assistance, which we have demonstrated comprises the plurality of ACEMS emergencies. We can also see that the amount of emergencies involving alcohol are far greater beteen 8PM and 4AM. Building on this, we can make our first substantive — yet somewhat obvious — recommendation for the ACEMS team. ACEMS members who are on-call late at night should be readily prepared to handle cases involving intoxication and overdose. We can make similar recommendations when considering data on calls throughout the week.
 
-```{r}
+```{r, message=FALSE, echo=FALSE}
 ggplot(data = visual4week, aes(x = day_of_week, y = count, fill = call_type)) +
-  scale_fill_manual(values = c("red", "blue"), name = "Type of emergency",
-                    labels = c("Alcohol calls only", "All calls")) +
+   scale_fill_manual(values = c("floralwhite", "steelblue"), name = "Type of emergency",
+                    labels = c("Alcohol-related calls only", "Other calls")) +
   geom_bar(stat = 'identity') +
   labs(
     title = "Number of calls throughout the week",
     x = "Day of week",
     y = "Number of calls"
   ) +
-  theme(axis.text.x = element_text(angle = 0, vjust = -0.5, hjust = 0.5, size = 7.5)) +
-  geom_text(aes(label = count), vjust = -0.2)
+  theme(axis.text.x = element_text(angle = 0, vjust = -0.5, hjust = 0.5, size = 8)) +
+  theme(panel.background = element_rect(fill = "gainsboro")) + 
+  geom_text(aes(label = count, group = call_type),
+            position = position_stack(vjust = 0.5))
 ```
 Clearly, emergency calls are significantly higher on the weekends. And, of those calls, alcohol related crises make up a greater proportion. This information may help ACEMS appropriately plan which officers to assign during weekends, prioritizing those with more experience and preparedness.
 
@@ -381,31 +386,59 @@ visual3data$semester <- factor(visual3data$semester, levels = c("Fall 2016", "Sp
 
 visual3data <- visual3data %>% 
   arrange(semester)
+
+
+visual5data <- data %>% 
+    #filter(location == "first-year quad") %>%
+  # mutate(
+  #   month_only = substr(month, 6,7)
+  # ) %>% 
+  #filter(month_only != "01" & month_only != "06" & month_only != "07" & month_only != "08") %>% 
+  #filter(month != "2016-03") %>%  # We only have data on this month in Spring 2016
+  group_by(month) %>% 
+  dplyr::summarize(
+    all_calls = n(),
+    alcohol_calls = sum(ifEtOH == 1)
+  ) %>% 
+  pivot_longer(cols = c("all_calls", "alcohol_calls"), names_to = "call_type", values_to = "count")
+
+visual5data <- visual5data %>% 
+  arrange(month)
+
+visual5data
 ```
 
 ```{r, message=FALSE, echo=FALSE}
-ggplot(visual3data, aes(x = semester, y = count, group = call_type, color = call_type)) +
-  geom_point(size = 2) + 
-  geom_line() +
+ggplot(visual3data) +
+  geom_line(aes(x = semester, y = count, group = call_type, color = call_type)) + 
   labs(
-    title = "Distribution of calls to FYQ throughout the semester",
+    title = "Distribution of calls by semester",
     x = "Semester",
     y = "Number of calls"
   ) +
   theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust = 1)) +
   scale_color_manual(values = c("blue", "black", "gray"), name = "Type of emergency",
-                    labels = c("Alcohol calls only", "All calls", "First-year quad only")) +
+                    labels = c("Alcohol calls only", "Other calls", "First-year quad only")) +
   scale_y_continuous(breaks = c(0, 20, 40, 60, 80, 100, 120, 140, 160), 
                      labels = c("0", "20", "40", "60", "80", "100", "120", "140", "160"))
 ```
-Now, we will analyze trends on response escalation based on type of emergency.
+
+
+# Central Question 2: Using ACEMS Data to Measure Adherence to COVID Policy
+
+## Introduction
+
+During the initial planning stages for our blog, we knew that the final version would include data related to time. We didn't know, however, precisely how we would use these data to produce interesting and pertinent findings — until Austin came up with a plan to use ACEMS emergencies to measure adherence to COVID policy.
+
+Our plan grew from there. Given that we had already decided to measure the proportion of alcohol to non-alcohol related calls, we decided to track the volume of emergencies involving alcohol as a proxy for students' amount of socialization. Our logic is that since most students party on the weekends — and we observe significantly higher levels of alcohol/EtOH emergencies on the weekends — students generally need more care for alcohol abuse when they're more social. So, it follows that the amount of responses for intoxication can model campus' adherence to COVID restrictions.
+
+
 
 # Central Question 3: Escalation of ACEMS Calls
 
 ## Introduction
 
 ## Types of Emergencies
-
 
 As discussed previously, we significantly consolidated the number of emergency complaint labels in our data set. With our final list, we hoped to 
 
