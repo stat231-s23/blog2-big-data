@@ -7,10 +7,68 @@ output:
     highlight: "kate"
 ---
 
+```{css, echo=FALSE}
+
+@import url('https://fonts.googleapis.com/css2?family=Poppins:wght@300&display=swap');
+
+body {
+    font-family: 'Poppins';
+}
+
+h1, h2, h3, h4, h5, h6, legend {
+  font-family: 'Poppins';
+  color: #4682b4
+}
+
+#sidebar h1 {
+background-color: #4682b4 !important;
+}
+
+#sidebar h2 {
+background-color: #4682b4 !important;
+  }
+
+#main a {
+color: #4682b4 !important;
+  background-image: linear-gradient(180deg,#438a8f,#438a8f);
+}
+
+#main .navbar-nav > .active > a { 
+background-color: #4682b4 !important;
+  color: white !important;
+}
+
+#main li.active a, li a:hover {
+background-color: #4682b4 !important;
+}
+
+code {
+  color: #4682b4;
+}
+
+/*----------------- links ---------------------*/
+a { 
+  color: #floralwhite !important;
+}
+
+a:hover {
+ background-color: #4682b4 !important;
+}
+
+/*----------LOGO above TOC---------*/
+#toc {
+  background-image: url("img/Mammoth-spring-sticker.gif") !important;
+  background-repeat: no-repeat;
+  background-size: contain;
+  background-position: bottom;
+}
+```
+
+
 ```{r setup, include = FALSE, echo = FALSE}
 # Set code chunk defaults 
 # Consider adding `message = FALSE` option
-knitr::opts_chunk$set(echo = FALSE) 
+knitr::opts_chunk$set(echo = FALSE, message = FALSE) 
                       
 # Set R environment options
 options(knitr.kable.NA = '')
@@ -73,14 +131,7 @@ case_summary <- init_summary_data %>%
   kbl(caption = "Initial summary of case distribution") %>%
   kable_classic(full_width = F, html_font = "Cambria")
 
-plot1 <- ggplot(case_summary1, aes(x = reorder(abbr, -N), y = N)) + geom_bar(stat = "identity") +
-  labs(
-    title = "Comparison of complaint counts",
-    x = "Type of emergency",
-    y = "Number of cases"
-  ) +
-  theme(text = element_text(size = 7.5)) +
-  theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust = 1))
+
 
 #MAIN WRANGLING
 data <- raw_data %>%
@@ -232,14 +283,12 @@ case_summary
 
 Beginning to manage the ACEMS data, we encountered many problems. Compared to our Shiny app data set, this project promised to be a greater test of our wrangling skills. The data were formatted with variables for date/time, location, complaint, and result (transferred to AFD, etc.). There were also four additional columns for additional description of a response, but those were seldom used by the ACEMS team and thus removed early. We then cleaned the date/time variable relatively easily. After removing two erroneous entries in 1890, converting the variable to type POSIXct, and creating separate columns for date, time, and day of the week --- we were satisfied. Additionally, the result variable was completed fairly easily. Then, however, the real work began.
 
-The location and complaint columns were a mess. Names were misspelled, entries were assigned arbitrarily or with one-off markers (ie., Morris Pratt instead of the overarching Webster Circle tag) --- there was little consistency in how the data were inputted. Just for the complaint variable, we immediately noticed that 125 of the 147 total unique complaint tags had less than 10 entries. This was clearly unacceptable if we hoped to create comprehensible visualizations. Below is a representation of each unique type of emergency complaint and its counts. On the right is a table of the 10 most frequent complaints. There are some significant findings to gleam from this, like that alcohol/EtOH cases comprise the majority of ACEMS responses, but it required serious wrangling for meaningful visualization.
+The location and complaint columns were a mess. Names were misspelled, entries were assigned arbitrarily or with one-off markers (ie., Morris Pratt instead of the overarching Webster Circle tag) --- there was little consistency in how the data were inputted. Just for the complaint variable, we immediately noticed that 125 of the 147 total unique complaint tags had less than 10 entries. This was clearly unacceptable if we hoped to create comprehensible visualizations. Below is a representation of each unique type of emergency complaint and its counts. There are some significant findings to gleam from this, like that alcohol/EtOH cases comprise the majority of ACEMS responses, but it required serious wrangling for meaningful visualization.
 
 
 
 ```{r barchart, message=FALSE, echo=FALSE, fig.show="hold", out.width="100%"}
 #bar chart
-
-plot1
 ```
 Clearly, we had too many categories. In addition to looking out for misspellings/different variations, we also had to group together different types of complaints together. Even after correcting spelling, there were still too many unique cases to be able to make any meaningful visualizations out of. Therefore, emergencies that had a lot in common were grouped together (such as "bee sting" and "tick bite" were categorized as "environmental emergencies"). Cases like these were impossible to automate or perform with generic functions. Therefore, we painstakingly wrote case_when statements for each group. To wrangle efficiently, we created another column with the first four letter abbreviations of the target variable. Then, we grouped by abbreviation to correct for misspelling and for interpretation. This accounted for much of the inconsistency. Finally, we had finished our wrangling.
 
@@ -388,27 +437,8 @@ visual3data$semester <- factor(visual3data$semester, levels = c("Fall 2016", "Sp
 
 visual3data <- visual3data %>% 
   arrange(semester)
-
-
-visual5data <- data %>% 
-    #filter(location == "first-year quad") %>%
-  # mutate(
-  #   month_only = substr(month, 6,7)
-  # ) %>% 
-  #filter(month_only != "01" & month_only != "06" & month_only != "07" & month_only != "08") %>% 
-  #filter(month != "2016-03") %>%  # We only have data on this month in Spring 2016
-  group_by(month) %>% 
-  dplyr::summarize(
-    all_calls = n(),
-    alcohol_calls = sum(ifEtOH == 1)
-  ) %>% 
-  pivot_longer(cols = c("all_calls", "alcohol_calls"), names_to = "call_type", values_to = "count")
-
-visual5data <- visual5data %>% 
-  arrange(month)
-
-visual5data
 ```
+
 
 ```{r, message=FALSE, echo=FALSE}
 ggplot(visual3data, aes(x = semester, y = count, group = call_type, color = call_type)) +
@@ -430,7 +460,7 @@ ggplot(visual3data, aes(x = semester, y = count, group = call_type, color = call
 
 # Central Question 2: How did COVID affect ACEMS emergencies?
 
-## Introduction
+## Discussion
 
 During the initial planning stages for our blog, we knew that the final version would include data related to time. We didn't know, however, precisely how we would use these data to produce interesting and pertinent findings — until Austin came up with a plan to use ACEMS emergencies to measure adherence to COVID policy.
 
@@ -477,7 +507,7 @@ final_table_plot <- ggplot(final_case_summary, aes(x = reorder(complaint, -N), y
 
 ```
 <div style= "float:right;position: relative; top: -1px; right: -20px">
-```{r}
+```{r, message=FALSE, echo=FALSE}
 final_table_plot
 ```
 </div>
@@ -496,7 +526,7 @@ visual2data <- data %>%
   pivot_longer(cols = c("per_ACEMS", "per_higher"), names_to = "type_of_care", values_to = "percentage")
 ```
 
-```{r}
+```{r, message=FALSE, echo=FALSE}
 ggplot(visual2data, aes(x = percentage, y = complaint, fill = type_of_care)) + 
   geom_bar(stat = "identity") +
   labs(
