@@ -409,18 +409,20 @@ visual5data
 ```
 
 ```{r, message=FALSE, echo=FALSE}
-ggplot(visual3data) +
-  geom_line(aes(x = semester, y = count, group = call_type, color = call_type)) + 
+ggplot(visual3data, aes(x = semester, y = count, group = call_type, color = call_type)) +
+  geom_point(size = 2) + 
+  geom_line() +
   labs(
     title = "Distribution of calls by semester",
     x = "Semester",
     y = "Number of calls"
   ) +
   theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust = 1)) +
-  scale_color_manual(values = c("blue", "black", "gray"), name = "Type of emergency",
+  scale_color_manual(values = c("blue", "black", "red"), name = "Type of emergency",
                     labels = c("Alcohol calls only", "Other calls", "First-year quad only")) +
   scale_y_continuous(breaks = c(0, 20, 40, 60, 80, 100, 120, 140, 160), 
-                     labels = c("0", "20", "40", "60", "80", "100", "120", "140", "160"))
+                     labels = c("0", "20", "40", "60", "80", "100", "120", "140", "160")) +
+    theme(panel.background = element_rect(fill = "gainsboro"))
 ```
 
 
@@ -446,17 +448,29 @@ As discussed previously, we significantly consolidated the number of emergency c
 final_case_summary <- data %>%
  dplyr::group_by(complaint) %>%
   dplyr::summarize(N = n()) %>%
-  arrange(desc(N)) %>%
-  head(30) %>%
+  arrange(desc(N))# %>%
+ # head(30)# %>%
   #datatable(colnames = c("Complaint", "Count"),
   #          filter = 'top',
   #          options = list(pageLength = 10, autoWidth = 10))# %>%
-  kbl(caption = "Summary of case distribution") %>%
-  kable_classic(full_width = F, html_font = "Cambria")
+  #kbl(caption = "Summary of case distribution") %>%
+  #kable_classic(full_width = F, html_font = "Cambria")
+
+
+final_table_plot <- ggplot(final_case_summary, aes(x = reorder(complaint, -N), y = N)) + geom_bar(stat = "identity") +
+  labs(
+    title = "Comparison of complaint counts",
+    x = "Type of emergency",
+    y = "Number of cases"
+  ) +
+  theme(text = element_text(size = 7.5)) +
+  theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust = 1))
+
+
 ```
 <div style= "float:right;position: relative; top: -1px; right: -20px">
 ```{r}
-final_case_summary
+final_table_plot
 ```
 </div>
 ```{r, message=FALSE, echo=FALSE}
@@ -475,17 +489,18 @@ visual2data <- data %>%
 ```
 
 ```{r}
-ggplot(visual2data, aes(x = complaint, y = percentage, fill = type_of_care)) + 
+ggplot(visual2data, aes(x = percentage, y = complaint, fill = type_of_care)) + 
   geom_bar(stat = "identity") +
   labs(
-    title = "Type of care needed depending on type of emergency",
-    x = "Type of emergency",
-    y = "Percentage of emergencies"
+    title = "Care by type of emergency",
+    x = "Percentage of emergencies",
+    y = "Type of emergency"
   ) +
-  theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust = 1)) + 
-  scale_fill_manual(values = c("blue", "red"), name = "Type of care",
+  theme(axis.text.x = element_text(angle = 0, vjust = 0.5, hjust = 1)) + 
+  scale_fill_manual(values = c("steelblue", "floralwhite"), name = "Type of care",
                     labels = c("ACEMS care only", "Higher level of care")) +
-  scale_y_continuous(breaks = c(0, 25, 50, 75, 100), 
-                     labels = c("0%", "25%", "50%", "75%", "100%"))
+  scale_x_continuous(breaks = c(0, 25, 50, 75, 100), 
+                     labels = c("0%", "25%", "50%", "75%", "100%")) +
+ theme(panel.background = element_rect(fill = "darkgray"))
 ```
 
