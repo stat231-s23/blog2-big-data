@@ -208,7 +208,7 @@ knitr::include_graphics("img/ACEMS_LOGO.jpeg")
 </div>
 # Introduction
 
-This project uses data from the Amherst College Emergency Medical Service (ACEMS) to explore trends in campus medical emergencies. We wanted to pick a topic which could convey some information about Amherst, hoping that a more personal topic would lead to interesting findings. The decision to use ACEMS data began with a conversation between the two of us. With one of us a senior member of ACEMS and the other an unaffiliated Amherst student, we noticed a strong disconnect in the amount of campus knowledge and awareness of ACEMS (Julius didn't even know how many members there were!). And given Austin's connection to the team, accessing data and creating informed statistics would be much easier. We hope that this topic will both increase knowledge of ACEMS' activities and generally reflect some trends of Amherst's campus life.
+This project uses data from the Amherst College Emergency Medical Service (ACEMS) to explore trends in campus medical emergencies. We wanted to pick a topic which could convey some information about Amherst, hoping that a more personal topic would lead to interesting findings. The decision to use ACEMS data began with a conversation between the two of us. With one of us a senior member of ACEMS and the other an unaffiliated Amherst student, we noticed a strong disconnect in the amount of campus knowledge and awareness of ACEMS (Julius didn't even know how many members there were!). We hope that this topic will both increase knowledge of ACEMS' activities and generally reflect some trends of Amherst's campus life.
 
 To tackle these goals, we address three central questions. First, where and when do campus emergencies typically occur? To answer, we summarize ACEMS responses, tracking the locations and types of calls which are most prevalent. Second, how can we use ACEMS data to measure COVID policy? We explore how effective restrictions were on minimizing social interaction --- using the frequency of alcohol and narcotics calls as a proxy for campus socialization. Third, what is the purview of ACEMS? When should a responder expect to escalate a call to the Amherst Fire Department (AFD)? We analyze which types of calls are typically escalated.
 
@@ -218,7 +218,7 @@ Discussion of our data and findings will begin with explanation of data collecti
 
 ## Data Collection
 
-For our initial data collection and preparation phase, *getting* the data set was the easiest part. As mentioned previously, Austin is a senior member of ACEMS --- and as all members are responsible for updating the emergency response common data --- he was easily able to access the spreadsheet. After ensuring that the data were extensive and had potential for interesting interpretation, we set out on acquiring permission. Although the data omitted any personal information which could identify a victim, we wanted to be certain continuing was ethical. And luckily, after talking to Professor Correia and Austin's supervisor, we were good to go!
+For our initial data collection and preparation phase, *getting* the data set was the easiest part. As mentioned previously, Austin is a senior member of ACEMS --- and as all members are responsible for updating the emergency response meta data --- he was easily able to access the spreadsheet. After ensuring that the data were extensive and had potential for interesting interpretation, we set out on acquiring permission. Although the data omitted any personal information which could identify a patient, we wanted to be certain continuing was ethical. And luckily, after talking to Professor Correia and Austin's supervisor, we were good to go!
 
 ## Data Wrangling
 
@@ -230,7 +230,7 @@ case_summary
 ```
 </div>
 
-Beginning to manage the ACEMS data, we encountered many problems. Compared to our Shiny app data set, this project promised to be a greater test of our wrangling skills. The data were formatted with variables for date/time, location, complaint, and escalation result (transferred to AFD, etc.). There were also two additional columns for additional description of a response, but those were seldom used by the ACEMS team and thus removed early. We then cleaned the date/time variable relatively easily. After removing two erroneous entries in 1890, converting the variable to type POSIXct, and creating separate columns for date, time, and day of the week --- we were satisfied. Additionally, the result variable was completed fairly easily. Then, however, the real work began.
+Beginning to manage the ACEMS data, we encountered many problems. Compared to our Shiny app data set, this project promised to be a greater test of our wrangling skills. The data were formatted with variables for date/time, location, complaint, and result (transferred to AFD, etc.). There were also four additional columns for additional description of a response, but those were seldom used by the ACEMS team and thus removed early. We then cleaned the date/time variable relatively easily. After removing two erroneous entries in 1890, converting the variable to type POSIXct, and creating separate columns for date, time, and day of the week --- we were satisfied. Additionally, the result variable was completed fairly easily. Then, however, the real work began.
 
 The location and complaint columns were a mess. Names were misspelled, entries were assigned arbitrarily or with one-off markers (ie., Morris Pratt instead of the overarching Webster Circle tag) --- there was little consistency in how the data were inputted. Just for the complaint variable, we immediately noticed that 125 of the 147 total unique complaint tags had less than 10 entries. This was clearly unacceptable if we hoped to create comprehensible visualizations. Below is a representation of each unique type of emergency complaint and its counts. On the right is a table of the 10 most frequent complaints. There are some significant findings to gleam from this, like that alcohol/EtOH cases comprise the majority of ACEMS responses, but it required serious wrangling for meaningful visualization.
 
@@ -241,13 +241,13 @@ The location and complaint columns were a mess. Names were misspelled, entries w
 
 plot1
 ```
-Clearly, we had too many categories. As before, much of the variation was due to misspelling. For these cases, we created another column with the first four letter abbreviations of the target variable. Then, we grouped by abbreviation to correct for misspelling. This accounted for much of the inconsistency. However, we also encountered cases where locations and complaints could be subjectively grouped. For example, we ultimately chose to combine "migraine" and "headache/head injury". Cases like these were impossible to automate or perform with generic functions. Therefore, we painstakingly wrote case_when statements for each group. Finally, we had finished our wrangling.
+Clearly, we had too many categories. In addition to looking out for misspellings/different variations, we also had to group together different types of complaints together. Even after correcting spelling, there were still too many unique cases to be able to make any meaningful visualizations out of. Therefore, emergencies that had a lot in common were grouped together (such as "bee sting" and "tick bite" were categorized as "environmental emergencies"). Cases like these were impossible to automate or perform with generic functions. Therefore, we painstakingly wrote case_when statements for each group. To wrangle efficiently, we created another column with the first four letter abbreviations of the target variable. Then, we grouped by abbreviation to correct for misspelling and for interpretation. This accounted for much of the inconsistency. Finally, we had finished our wrangling.
 
-# Central Question 1: Location and Time of ACEMS Calls
+# Central Question 1: When and where are the majority of ACEMS calls?
 
 ## Introduction
 
-We hoped that creating displays of data on location and time of campus emergencies could be particularly interesting for other students. Where do most ACEMS calls occur? We assumed a strong association between the amount of parties hosted in a dorm and the amount of calls received — but is this true? What about dorms which are further from campus? Does Humphries' House receive less calls than Morris Pratt? And for time: clearly there are more calls on the weekends, but are there more on Fridays or Saturdays? What times?
+We hoped that creating displays of data on location and time of campus emergencies could be particularly interesting for other students. Where do most ACEMS calls occur? We assumed a strong association between the amount of parties hosted in a dorm and the amount of calls received — but is this true? What about dorms which are further from campus? Does Humphries' House receive less calls than Morris Pratt? And for time: clearly there are more calls on the weekends, but are there more on Fridays or Saturdays? What times specifically?
 
 ## Spatial Analysis
 
@@ -289,9 +289,9 @@ leaflet(data = visual1data) %>%
 
 ```
 
-From the map, it's clear that the vast majority of ACEMS calls occur on the first-year quad. With over 150 more calls than Valentine quad, the second highest location, this is an astonishing amount. We question whether this statistic is simply a function of the first-year quad having the highest density of students, first-years being more reckless/irresponsible, or some combination.
+From the map, it's clear that the vast majority of ACEMS calls occur on the first-year quad. With over 150 more calls than Valentine quad, the second highest location, this is an astonishing amount. One possible explanation is that the first year quad is close to the center of campus with lots of people passing through. Another explanation is that most of the calls are from first-years who have drank too much. Usually, first-years do not know their alcoholic limit as well as upper classman and so we hypothesize that they would party then head back to their dorms, realize that they are in a bad spot, and call ACEMS.
 
-Otherwise, though, the trends are about as we expected. The areas near typical "party dorms" are associated with greater amounts of calls. The gym and athletic fields also have relatively high numbers of calls, which makes sense given the potential for fatigue and exhaustion.
+Otherwise, though, the trends are about as we expected. The areas near typical "party dorms" are associated with greater amounts of calls. The gym and athletic fields also have relatively high numbers of calls, which makes sense given the potential for muscuoskeletal injuries.
 
 
 ## Temporal Analysis
@@ -344,7 +344,7 @@ ggplot(data = visual4day, aes(x = time_of_day, y = count, fill = call_type)) +
             position = position_stack(vjust = 0.5))
 ```
 
-Unsurprisingly, ACEMS receives more calls as the night progresses, with a sharp drop in call volume by 4AM. This is consistent with the times that students would be partying and require alcohol/EtOH related medical assistance, which we have demonstrated comprises the plurality of ACEMS emergencies. We can also see that the amount of emergencies involving alcohol are far greater beteen 8PM and 4AM. Building on this, we can make our first substantive — yet somewhat obvious — recommendation for the ACEMS team. ACEMS members who are on-call late at night should be readily prepared to handle cases involving intoxication and overdose. We can make similar recommendations when considering data on calls throughout the week.
+Unsurprisingly, ACEMS receives more calls as the night progresses, with a sharp drop in call volume by 4AM. This is consistent with the times that students would be partying and require alcohol related medical assistance, which we have demonstrated comprises the plurality of ACEMS emergencies. We can also see that the amount of emergencies involving alcohol are far greater beteen 8PM and 4AM. Building on this, we can make our first substantive — yet somewhat obvious — recommendation for the ACEMS team. ACEMS members who are on-call late at night should be readily prepared to handle cases involving intoxication and overdose. We can make similar recommendations when considering data on calls throughout the week. THe significant drop in calls between 4 AM and 8 AM is probably because that is when most parties have ended and everyone has gone to bed. The general increase in the total number of calls starting from the morning until afternoon/evening could also be explained by student activity level. As students finish classes and are out and about more often, that could lead them more prone to injury.
 
 ```{r, message=FALSE, echo=FALSE}
 ggplot(data = visual4week, aes(x = day_of_week, y = count, fill = call_type)) +
@@ -363,7 +363,9 @@ ggplot(data = visual4week, aes(x = day_of_week, y = count, fill = call_type)) +
 ```
 Clearly, emergency calls are significantly higher on the weekends. And, of those calls, alcohol related crises make up a greater proportion. This information may help ACEMS appropriately plan which officers to assign during weekends, prioritizing those with more experience and preparedness.
 
-Moving on to long-term trends, we plotted the amount of calls from Fall 2016 to Spring 2023. One interesting trend is that the Fall semesters appear to be associated with higher amounts of cases. This might be explained by temperature differences. Given that Fall is generally warmer than Spring, there might be a greater amount of alcohol-related emergencies.
+Moving on to long-term trends, we plotted the amount of calls from Fall 2016 to Spring 2023. One interesting trend is that the Fall semesters appear to be associated with higher amounts of cases. This might be explained by temperature differences. Given that Fall is generally warmer than Spring, that could lead to more active campus life and thus a greater chance of injury. This includes students who might go out partying. Another explanation could be that because the Fall semester is the start of the year, many students either haven't seen their friends for the entire summer or are making new friends which could also increase activity levels.
+
+This graphs also supports our hypothesis in that most of the calls on the first year quad are alcohol related calls because in most semesters, the number of calls on the first year quad and the number of alcohol calls are similar in number.
 
 
 ```{r, message=FALSE, echo=FALSE}
@@ -426,7 +428,7 @@ ggplot(visual3data, aes(x = semester, y = count, group = call_type, color = call
 ```
 
 
-# Central Question 2: Using ACEMS Data to Measure Adherence to COVID Policy
+# Central Question 2: How did COVID affect ACEMS emergencies?
 
 ## Introduction
 
@@ -434,15 +436,21 @@ During the initial planning stages for our blog, we knew that the final version 
 
 Our plan grew from there. Given that we had already decided to measure the proportion of alcohol to non-alcohol related calls, we decided to track the volume of emergencies involving alcohol as a proxy for students' amount of socialization. Our logic is that since most students party on the weekends — and we observe significantly higher levels of alcohol/EtOH emergencies on the weekends — students generally need more care for alcohol abuse when they're more social. So, it follows that the amount of responses for intoxication can model campus' adherence to COVID restrictions.
 
+However, the most meaningful graph that could convey any information was the scatter plot presented above. When COVID hit in Spring 2020 and students were sent back home, campus life grinned to a halt and ACEMS stopped running, thus explaining the decrease in calls. ACEMS was not active in Fall 2020 and was only restarted in Spring 2021. In Spring 2021, there was still a very low number of both total calls and alcohol calls which is expected due to the quarantine like lifestyle on campus. Surprisingly starting in Fall 2021, even with COVID policies still in place, the number of total calls and alcohol calls resumed pre-COVID levels and maintained that afterwards. 
 
+Note, the decrease in calls for Spring 2023 is because at the time of this project, the semester is still in full swing and not all calls that would happen have been documented yet.
 
-# Central Question 3: Escalation of ACEMS Calls
+# Central Question 3: What level of care is requried for ACEMS emergencies?
 
 ## Introduction
 
+The final analysis we completed was to examine what types of calls require what level of care. In ACEMS protocol, there are three possible outcomes. Either the patient can be treated with only ACEMS, or would require the hospital or the health center. For ease of visualization, we decided to group all hospital and health center visits together as "higher level of care" because the health care providers there would be paramedics/nurses/doctors which are more highly certified than ACEMS members. We hope that this information can help ACEMS prepare on their way to a call because the type of emergency is conveyed to ACEMS while they are en route to the emergency.
+
 ## Types of Emergencies
 
-As discussed previously, we significantly consolidated the number of emergency complaint labels in our data set. With our final list, we hoped to 
+As discussed previously, we significantly consolidated the number of emergency complaint labels in our data set. The first bar graph illustrates all the newly consolidated emergencies. Most notably, alcohol calls were most common followed by musculoskeletal injuries. Outside of these two calls, most of the other types of calls have similar levels of frequency. 
+
+Note: *environmental injuries* are injuries that are caused by nature (such as bee stings, tick bites, dog bites, etc) as well as natural chemicals (such as chemical spills). *other* consists of all the rare, more niche types of calls (such as vertigo, UTI, and gum swelling)
 
 ```{r, message=FALSE, echo=FALSE}
 final_case_summary <- data %>%
@@ -504,3 +512,14 @@ ggplot(visual2data, aes(x = percentage, y = complaint, fill = type_of_care)) +
  theme(panel.background = element_rect(fill = "darkgray"))
 ```
 
+In the second graph, there are six categories of calls that will require a higher level of care more than half the time. Those calls are *stroke/syncope*, *seizure*, *non-alcoholic overdose*, *chest pain*, *cardiovascular emergency*, and *anaphylaxsis*. These types of calls are often very severe and so are not surprising that they would often require higher levels of care. Most call types seem to require higher level of care about 25%-50% of the time. There are six types of calls that require advanced care less than 25% of the time. Those are *allergic reaction*, *burn*, *environmental injuries*, *headache/head injury*, *laceration/hemorrhage*, and  *musculoskeletal injury*. Most of these calls are often less severe. Although *laceration/hemorrhage* sounds very severe, most of these calls are minor bleeds and cuts. The more intense types of bleeding and cuts will require advanced care, but happen less frequently than the minor cases.
+
+# Conclusion 
+
+There are several key takeaways from our analysis. 
+
+* Most calls occur on the first-year quad most likely due to first-year over intoxication
+* Call count increases throughout the day, with a spike during the late night hours, and during the weekend due to increase in student activity
+* Fall semesters have higher call counts than Spring semester 
+* COVID only impacted call count for two semesters
+* Type of care required varies greatly with type of emergency
