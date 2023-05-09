@@ -8,6 +8,7 @@ output:
 ---
 
 ```{css, echo=FALSE}
+/*Changing color scheme*/
 
 @import url('https://fonts.googleapis.com/css2?family=Poppins:wght@300&display=swap');
 
@@ -98,14 +99,14 @@ library(grid)
 library(png)
 library(DT)
 
-#FILE IMPORT
+# Import raw data and map coordinates
 file <- "data/runreport.xlsx"
 map_file <- "data/BlogMapData.kml"
 raw_data <- readxl::read_xlsx(file)
 raw_map_data <- st_read(map_file) %>% 
   filter(Name != "booknplow farm")
 
-#WRANGLING FOR TABLE AND BAR CHART
+# Wrangling for bar and table plot
 init_summary_data <- raw_data %>%
   janitor::clean_names() %>% 
   select(-c(x6, x7, x8, was_this_call_an_especially_stressful_or_emotionally_difficult_experience_for_any_members_of_the_responding_team)) %>% 
@@ -125,15 +126,10 @@ case_summary <- init_summary_data %>%
   dplyr::summarize(N = n()) %>%
   arrange(desc(N)) %>%
   head(10) %>%
-  #datatable(colnames = c("Complaint", "Count"),
-  #          filter = 'top',
-  #          options = list(pageLength = 10, autoWidth = 10))# %>%
   kbl(caption = "Initial summary of case distribution") %>%
   kable_classic(full_width = F, html_font = "Cambria")
 
-
-
-#MAIN WRANGLING
+# Main wrangling
 data <- raw_data %>%
   janitor::clean_names() %>% 
   select(-c(x6, x7, x8, was_this_call_an_especially_stressful_or_emotionally_difficult_experience_for_any_members_of_the_responding_team)) %>% 
@@ -243,13 +239,6 @@ as.POSIXct("2000-02-02 23:59:59") ~ "8 PM - 12 AM"
   inner_join(raw_map_data, by = c("location" = "Name"))
 ```
 
-```{r init wrangling, message=FALSE, echo = FALSE}
-
-```
-
-```{r init_summary-wrangling, message=FALSE, echo=FALSE}
-
-```
 <div style= "float:right;position: relative; top: -180px; right: -20px">
 ```{r, fig.cap='', out.width="70%", fig.align="right", out.extra='style="float:right; padding:10px"', message=FALSE, echo = FALSE}
 
@@ -283,14 +272,9 @@ case_summary
 
 Beginning to manage the ACEMS data, we encountered many problems. Compared to our Shiny app data set, this project promised to be a greater test of our wrangling skills. The data were formatted with variables for date/time, location, complaint, and result (transferred to AFD, etc.). There were also four additional columns for additional description of a response, but those were seldom used by the ACEMS team and thus removed early. We then cleaned the date/time variable relatively easily. After removing two erroneous entries in 1890, converting the variable to type POSIXct, and creating separate columns for date, time, and day of the week --- we were satisfied. Additionally, the result variable was completed fairly easily. Then, however, the real work began.
 
-The location and complaint columns were a mess. Names were misspelled, entries were assigned arbitrarily or with one-off markers (ie., Morris Pratt instead of the overarching Webster Circle tag) --- there was little consistency in how the data were inputted. Just for the complaint variable, we immediately noticed that 125 of the 147 total unique complaint tags had less than 10 entries. This was clearly unacceptable if we hoped to create comprehensible visualizations. Below is a representation of each unique type of emergency complaint and its counts. There are some significant findings to gleam from this, like that alcohol/EtOH cases comprise the majority of ACEMS responses, but it required serious wrangling for meaningful visualization.
+The location and complaint columns were a mess. Names were misspelled, entries were assigned arbitrarily or with one-off markers (ie., Morris Pratt instead of the overarching Webster Circle tag) --- there was little consistency in how the data were inputted. Just for the complaint variable, we immediately noticed that 125 of the 147 total unique complaint tags had less than 10 entries. This was clearly unacceptable if we hoped to create comprehensible visualizations. 
 
-
-
-```{r barchart, message=FALSE, echo=FALSE, fig.show="hold", out.width="100%"}
-#bar chart
-```
-Clearly, we had too many categories. In addition to looking out for misspellings/different variations, we also had to group together different types of complaints together. Even after correcting spelling, there were still too many unique cases to be able to make any meaningful visualizations out of. Therefore, emergencies that had a lot in common were grouped together (such as "bee sting" and "tick bite" were categorized as "environmental emergencies"). Cases like these were impossible to automate or perform with generic functions. Therefore, we painstakingly wrote case_when statements for each group. To wrangle efficiently, we created another column with the first four letter abbreviations of the target variable. Then, we grouped by abbreviation to correct for misspelling and for interpretation. This accounted for much of the inconsistency. Finally, we had finished our wrangling.
+In addition to looking out for misspellings/different variations, we also had to group together different types of complaints together. Even after correcting spelling, there were still too many unique cases to be able to make any meaningful visualizations out of. Therefore, emergencies that had a lot in common were grouped together (such as "bee sting" and "tick bite" were categorized as "environmental emergencies"). Cases like these were impossible to automate or perform with generic functions. Therefore, we painstakingly wrote case_when statements for each group. To wrangle efficiently, we created another column with the first four letter abbreviations of the target variable. Then, we grouped by abbreviation to correct for misspelling and for interpretation. This accounted for much of the inconsistency. Finally, we had finished our wrangling.
 
 # Central Question 1: When and where are the majority of ACEMS calls?
 
@@ -305,7 +289,7 @@ For our first display, we decided to map the quantity of calls by location. We w
 With the shape file created, we used R's Leaflet package to create an interactive map of Amherst's campus.
 
 ```{r, message=FALSE, echo=FALSE}
-#Leaflet wrangling
+# Leaflet wrangling
 visual1data <- data %>%
   pivot_longer(location, names_to = "name", values_to = "location") %>% 
   group_by(location, geometry) %>%
@@ -314,12 +298,13 @@ visual1data <- data %>%
   st_zm(drop = T, what = "ZM") %>%
   arrange(N)
 
-# Define color palette
+# Define color palette for leaflet
 colors <- colorBin("viridis", visual1data$N, 6, pretty = TRUE)
 
 ```
 
 ```{r, message=FALSE, echo=FALSE}
+# Leaflet
 leaflet(data = visual1data) %>% 
   addTiles() %>% 
   addPolygons(
@@ -350,12 +335,7 @@ We focused on time for two primary reasons. First, we were interested in short-t
 For short-term analysis, we first plotted the total amount of calls by hour of the day.
 
 ```{r initial wrangling, message=FALSE, echo=FALSE}
-visual4combine <- data %>% 
-  group_by(day_of_week, time_of_day) %>% 
-  dplyr::summarize(
-    N = n()
-  )
-
+# Wrangling for time of day vs call frequency bar plot
 visual4day <- data %>% 
   group_by(time_of_day) %>% 
   dplyr::summarize(
@@ -364,6 +344,7 @@ visual4day <- data %>%
   ) %>% 
   pivot_longer(cols = c(N, "alcohol_calls"), names_to = "call_type", values_to = "count")
 
+# Wrangling for day of week vs call frequency bar plot
 visual4week <- data %>% 
   group_by(day_of_week) %>% 
   dplyr::summarize(
@@ -372,12 +353,15 @@ visual4week <- data %>%
   ) %>% 
   pivot_longer(cols = c(N, "alcohol_calls"), names_to = "call_type", values_to = "count")
 
+# Establish the correct order for time of day
 visual4day$time_of_day <- factor(visual4day$time_of_day, levels = c("8 AM - 12 PM", "12 PM - 4 PM", "4 PM - 8 PM", "8 PM - 12 AM", "12 AM - 4 AM", "4 AM - 8 AM"))
 
+# Establish the correct order for day of week
 visual4week$day_of_week <- factor(visual4week$day_of_week, levels = c("Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"))
 ```
 
 ```{r}
+# Time of day vs call frequency bar plot 
 ggplot(data = visual4day, aes(x = time_of_day, y = count, fill = call_type)) +
   geom_bar(stat = 'identity') +
    scale_fill_manual(values = c("floralwhite", "steelblue"), name = "Type of emergency",
@@ -396,6 +380,7 @@ ggplot(data = visual4day, aes(x = time_of_day, y = count, fill = call_type)) +
 Unsurprisingly, ACEMS receives more calls as the night progresses, with a sharp drop in call volume by 4AM. This is consistent with the times that students would be partying and require alcohol related medical assistance, which we have demonstrated comprises the plurality of ACEMS emergencies. We can also see that the amount of emergencies involving alcohol are far greater beteen 8PM and 4AM. Building on this, we can make our first substantive — yet somewhat obvious — recommendation for the ACEMS team. ACEMS members who are on-call late at night should be readily prepared to handle cases involving intoxication and overdose. We can make similar recommendations when considering data on calls throughout the week. THe significant drop in calls between 4 AM and 8 AM is probably because that is when most parties have ended and everyone has gone to bed. The general increase in the total number of calls starting from the morning until afternoon/evening could also be explained by student activity level. As students finish classes and are out and about more often, that could lead them more prone to injury.
 
 ```{r, message=FALSE, echo=FALSE}
+# Day of week vs call frequency bar plot 
 ggplot(data = visual4week, aes(x = day_of_week, y = count, fill = call_type)) +
    scale_fill_manual(values = c("floralwhite", "steelblue"), name = "Type of emergency",
                     labels = c("Alcohol-related calls only", "Other calls")) +
@@ -418,8 +403,8 @@ This graphs also supports our hypothesis in that most of the calls on the first 
 
 
 ```{r, message=FALSE, echo=FALSE}
+# Wrangling for scatter plot
 visual3data <- data %>% 
-    #filter(location == "first-year quad") %>%
   mutate(
     month_only = substr(month, 6,7)
   ) %>% 
@@ -433,6 +418,7 @@ visual3data <- data %>%
   ) %>% 
   pivot_longer(cols = c("all_calls", "alcohol_calls", "fyq_calls"), names_to = "call_type", values_to = "count")
 
+# Establish correct order of semester
 visual3data$semester <- factor(visual3data$semester, levels = c("Fall 2016", "Spring 2017", "Fall 2017", "Spring 2018", "Fall 2018", "Spring 2019", "Fall 2019", "Spring 2020", "Spring 2021", "Fall 2021", "Spring 2022", "Fall 2022", "Spring 2023"))
 
 visual3data <- visual3data %>% 
@@ -441,6 +427,7 @@ visual3data <- visual3data %>%
 
 
 ```{r, message=FALSE, echo=FALSE}
+# Scatter plot
 ggplot(visual3data, aes(x = semester, y = count, group = call_type, color = call_type)) +
   geom_point(size = 2) + 
   geom_line() +
@@ -483,18 +470,13 @@ As discussed previously, we significantly consolidated the number of emergency c
 Note: *environmental injuries* are injuries that are caused by nature (such as bee stings, tick bites, dog bites, etc) as well as natural chemicals (such as chemical spills). *other* consists of all the rare, more niche types of calls (such as vertigo, UTI, and gum swelling)
 
 ```{r, message=FALSE, echo=FALSE}
+# Wrangling for comparison of complaint count table
 final_case_summary <- data %>%
  dplyr::group_by(complaint) %>%
   dplyr::summarize(N = n()) %>%
-  arrange(desc(N))# %>%
- # head(30)# %>%
-  #datatable(colnames = c("Complaint", "Count"),
-  #          filter = 'top',
-  #          options = list(pageLength = 10, autoWidth = 10))# %>%
-  #kbl(caption = "Summary of case distribution") %>%
-  #kable_classic(full_width = F, html_font = "Cambria")
+  arrange(desc(N))
 
-
+# Table of complaint count 
 final_table_plot <- ggplot(final_case_summary, aes(x = reorder(complaint, -N), y = N)) + geom_bar(stat = "identity") +
   labs(
     title = "Comparison of complaint counts",
@@ -503,8 +485,6 @@ final_table_plot <- ggplot(final_case_summary, aes(x = reorder(complaint, -N), y
   ) +
   theme(text = element_text(size = 7.5)) +
   theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust = 1))
-
-
 ```
 <div style= "float:right;position: relative; top: -1px; right: -20px">
 ```{r, message=FALSE, echo=FALSE}
@@ -512,6 +492,7 @@ final_table_plot
 ```
 </div>
 ```{r, message=FALSE, echo=FALSE}
+# Wrangling for level of care vs type of emergency stacked bar plot
 visual2data <- data %>% 
   group_by(complaint) %>% 
   dplyr::summarize(
@@ -527,6 +508,7 @@ visual2data <- data %>%
 ```
 
 ```{r, message=FALSE, echo=FALSE}
+# Level of care vs Type of Emergency stacked bar plot
 ggplot(visual2data, aes(x = percentage, y = complaint, fill = type_of_care)) + 
   geom_bar(stat = "identity") +
   labs(
